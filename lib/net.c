@@ -27,6 +27,52 @@
 #include <errno.h>
 
 
+
+// from DJB's short paper on the subject.
+#define MAX_SIZE_LEN (9)
+
+
+static inline size_t
+ns_read_size(int fd)
+{
+	ssize_t err, i;
+	char c;
+	// leave room for a trailing null pointer
+	char size[MAX_SIZE_LEN+1];
+
+	memset(&size, 0, sizeof(size));
+
+	i = 0;
+	do {
+		err = read(fd, &c, 1);
+		if (c == ':') {
+			return atol(size);
+		} else if (unlikely(!err)) {
+			exit_msg("%s: read EOF", __func__);
+		} else if (err < 0) {
+			if (errno == EINTR)
+				continue;
+			else
+				exit_perr("%s: read", __func__);
+		}
+		size[i++] = c;
+	} while (i < MAX_SIZE_LEN);
+
+	return atol(size);
+}
+
+
+char *
+ns_reads(int fd)
+{
+	int size;
+
+	size = ns_read_size(fd);
+
+	return NULL;
+}
+
+
 int
 get_listen_socket(const char *addr, const char *port)
 {

@@ -15,4 +15,6 @@
 int get_listen_socket(const char *addr, const char *port);
 int set_nonblocking (int fd);
 
+char *ns_reads(int fd);
+
 #endif // _NET_H_
