@@ -28,19 +28,30 @@
 
 #include <Block.h>
 
+#include <stdbool.h>
+#include <inttypes.h>
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif 
 
-typedef struct cfunc_cons_s cfunc_cons_t;
-struct cfunc_cons_s
+struct cfunc_cons;
+
+struct cfunc_ops
 {
-  void *car;
-  cfunc_cons_t *cdr;
+  void *(*car)(struct cfunc_cons *);
+  struct cfunc_cons *(*cdr)(struct cfunc_cons *);
 };
 
-typedef cfunc_cons_t* (^cfunc_closure_t)(void*);
+struct cfunc_cons
+{
+  struct cfunc_ops *ops;
+  void *car;
+  struct cfunc_cons *cdr;
+};
+
+typedef void* (^cfunc_closure_t)(void*);
 
 
 #ifdef __cplusplus

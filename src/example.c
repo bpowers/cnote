@@ -27,20 +27,36 @@
 
 #include <stddef.h>
 
-double cfunc_map(cfunc_closure_t f, cfunc_cons_t *coll)
+
+void *
+cfunc_car(struct cfunc_cons *coll)
 {
-  void *a = coll->car;
-  cfunc_cons_t *c = coll;
-  for (; a != NULL; a = c->car, c=c->cdr) 
-  {
-    f(a);
-  }
-  return 0;
+	return coll->ops->car(coll);
+}
+
+struct cfunc_cons *
+cfunc_cdr(struct cfunc_cons *coll)
+{
+	return coll->ops->cdr(coll);
+}
+
+struct cfunc_cons *
+cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
+{
+	void *a = cfunc_car(coll);
+	struct cfunc_cons *c = coll;
+	for (; a != NULL; a = c->car, c=c->cdr)
+	{
+		f(a);
+	}
+	return 0;
 }
 
 int main(int argc, const char *argv[])
 {
+	
 
-  return 0;
+
+	return 0;
 }
 

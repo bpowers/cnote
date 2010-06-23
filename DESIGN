@@ -1,0 +1,7 @@
+
+- receive connection info from SCGI
+- decide what to do with it
+  - (maybe look at how rails does it)
+  - pass socket off to worker of some kind
+- keep pool of fds for Comet around
+  - make sure this actually works?
