@@ -42,6 +42,9 @@ ns_read_size(int fd)
 
 	memset(&size, 0, sizeof(size));
 
+	// FIXME: this is inefficient, because we're doing a syscall
+	// every iteration, but it gets a lot messier if we use
+	// buffered io, so I guess its fine for now.
 	i = 0;
 	do {
 		err = read(fd, &c, 1);
@@ -65,10 +68,40 @@ ns_read_size(int fd)
 char *
 ns_reads(int fd)
 {
-	int size;
+	size_t size;
+	ssize_t len;
+	int offset;
+	char *data, c;
+
+	offset = 0;
+	data = NULL;
+	c = 0;
 
 	size = ns_read_size(fd);
+	if (unlikely(size <= 0))
+		exit_msg("%s: invalid size (%d)", __func__, size);
 
+	data = xmalloc(size);
+
+	while (size > 0) {
+		len = read(fd, &data[offset], size);
+		if (len == 0)
+			exit_perr("%s: short netstring read", __func__);
+		offset += len;
+		size -= len;
+	}
+
+	read(fd, &c, 1);
+	if (c != ',')
+		exit_msg("%s: missing netstring terminator", __func__);
+
+	return data;
+}
+
+
+char **
+read_env(fd)
+{
 	return NULL;
 }
 
