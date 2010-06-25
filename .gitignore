@@ -1,3 +1,6 @@
 .scons*
 *~
 src/example
+*.o
+*.a
+config.log
