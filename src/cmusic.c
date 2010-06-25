@@ -23,9 +23,23 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include <cfunc.h>
+#include <cfunc/cfunc.h>
+#include <cfunc/net.h>
 
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+#include <signal.h>
+#include <unistd.h>
+#include <getopt.h>
+
+#include <event2/event.h>
+
 
 
 void *
