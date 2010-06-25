@@ -33,4 +33,4 @@ env.ParseConfig('pkg-config --cflags --libs libevent')
 env.ParseConfig('pkg-config --cflags --libs nss')
 
 env.Library('lib/cfunc', Glob('lib/*.c'))
-env.Program('src/example', Glob('src/*.c'), LIBS='cfunc', LIBPATH='lib')
+env.Program('src/cmusic', Glob('src/*.c'), LIBS='cfunc', LIBPATH='lib')
