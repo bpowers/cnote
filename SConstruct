@@ -29,8 +29,16 @@ if not conf.CheckPkg('libevent >= 2.0'):
     print 'libevent2 not found.', stderr
     Exit(1)
 
+if not conf.CheckPkg('id3tag'):
+    print 'libid3tag (libid3tag0-dev) required.', stderr
+    Exit(1)
+
 env.ParseConfig('pkg-config --cflags --libs libevent')
 env.ParseConfig('pkg-config --cflags --libs nss')
 
 env.Library('lib/cfunc', Glob('lib/*.c'))
-env.Program('src/cmusic', Glob('src/*.c'), LIBS='cfunc', LIBPATH='lib')
+
+# from here on are cmusic-specific configs
+env.ParseConfig('pkg-config --cflags --libs id3tag')
+env.MergeFlags(env.ParseFlags(['-Llib', '-lcfunc']))
+env.Program('src/cmusic', Glob('src/*.c'))
