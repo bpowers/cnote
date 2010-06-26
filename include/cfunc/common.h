@@ -38,4 +38,10 @@ void exit_msg(const char *msg_fmt, ...);
 
 int sha256 (uint8_t *hash, void *data, size_t len);
 
+struct ccgi_state {
+	int32_t socket;
+	struct event_base *ev_base;
+	struct event *ev_accept;
+};
+
 #endif // _COMMON_H_

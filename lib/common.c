@@ -7,7 +7,7 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include "common.h"
+#include "cfunc/common.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,6 +31,8 @@
 #include <event2/event.h>
 
 
+// backlog arg for listen(2); max clients to keep in queue
+const int BACKLOG = 256;
 
 void *
 xmalloc0 (size_t size)

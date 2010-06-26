@@ -7,8 +7,8 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include "net.h"
-#include "common.h"
+#include "cfunc/net.h"
+#include "cfunc/common.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
