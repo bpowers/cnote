@@ -1,4 +1,5 @@
 import os.path
+from sys import stderr
 
 env = Environment(CC='clang',
                   CCFLAGS='-fcolor-diagnostics -fblocks -O2 -g -Wall',
@@ -20,29 +21,24 @@ conf = Configure(env, custom_tests = {'CheckPkgConfig': CheckPkgConfig,
                                       'CheckPkg': CheckPkg })
 
 if not conf.CheckPkgConfig('0.15.0'):
-    print 'pkg-config >= 0.15.0 not found.', stderr
-    Exit(1)
-
-if not conf.CheckPkg('nss'):
-    print 'nss (libnss3-dev) required.', stderr
+    print >> stderr, 'pkg-config >= 0.15.0 not found.'
     Exit(1)
 
 if not conf.CheckPkg('libevent >= 2.0'):
-    print 'libevent2 not found.', stderr
+    print >> stderr, 'libevent2 not found.'
     Exit(1)
 
-if not conf.CheckPkg('id3tag'):
-    print 'libid3tag (libid3tag0-dev) required.', stderr
+if not conf.CheckPkg('taglib_c'):
+    print >> stderr, 'taglib_c (libtagc0-dev) required.'
     Exit(1)
 
 if not os.path.exists('/usr/bin/pg_config'):
-    print 'pg_config (libpg-dev) required.', stderr
+    print >> stderr, 'pg_config (libpg-dev) required.'
     Exit(1)
 
 env.ParseConfig('pkg-config --cflags --libs libevent')
-env.ParseConfig('pkg-config --cflags --libs nss')
 env.MergeFlags(env.ParseFlags(['!pg_config --cflags', '!pg_config --libs',
-                               '!pg_config --ldflags']))
+                               '!pg_config --ldflags', '-lpq']))
 
 env.Library('lib/cfunc', Glob('lib/*.c'))
 
