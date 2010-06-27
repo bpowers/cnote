@@ -50,7 +50,8 @@ env.Library('lib/cfunc', Glob('lib/*.c'))
 
 # from here on are cmusic-specific configs
 env.ParseConfig('pkg-config --cflags --libs taglib_c')
-env.MergeFlags(env.ParseFlags(['-Llib', '-lcfunc']))
+env.MergeFlags(env.ParseFlags(['-Llib']))
+env.Prepend(LIBS = 'cfunc')
 
 env.Program('src/ctagdump', Glob('src/ctagdump.c'))
-#env.Program('src/cmusic', Glob('src/cmusic.c'))
+env.Program('src/cmusic', Glob('src/cmusic.c'))
