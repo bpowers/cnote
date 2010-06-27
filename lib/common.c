@@ -25,8 +25,12 @@
 #include <string.h>
 #include <errno.h>
 
-// for libnss3's sha256 hash function
-#include <nss/sechash.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <openssl/sha.h>
 
 #include <event2/event.h>
 
@@ -108,22 +112,49 @@ exit_perr(const char *err_fmt, ...)
 int
 sha256 (uint8_t *hash, void *data, size_t len)
 {
-	uint32_t hash_len;
-	HASHContext *ctx;
-
 	if (unlikely (!hash))
 		exit_msg ("%s: null hash", __func__);
 
 	if (unlikely (!data))
 		exit_msg ("%s: null data", __func__);
 
-	ctx = NULL;//HASH_Create (HASH_AlgSHA256);
-	if (!ctx)
-		exit_perr ("%s: HASH_Create", __func__);
-//	HASH_Begin (ctx);
-//	HASH_Update (ctx, data, len);
-//	HASH_End (ctx, hash, &hash_len, SHA256_LENGTH);
-//	HASH_Destroy (ctx);
+	SHA256 (data, len, hash);
 
 	return 0;
+}
+
+
+char *
+sha256_hex_file(const char *path, size_t len)
+{
+	int fd;
+	uint8_t sha256[SHA256_DIGEST_LENGTH];
+	char *ret;
+	void *fmap;
+
+	if (unlikely(!path))
+		exit_msg("%s: called with null path", __func__);
+	if (unlikely(len <= 0))
+		exit_msg("%s: called with 0 or negative len", __func__);
+
+	// malloc a string to return the hex version of the sha256 hash
+	// the +1 is for the trailing null
+	ret = xmalloc(2 * SHA256_DIGEST_LENGTH + 1);
+
+	fd = open(path, O_NOATIME|O_RDONLY);
+	if (fd < 0)
+		exit_perr("%s: open failed on '%s'", __func__, path);
+
+        fmap = mmap(NULL, len, PROT_READ, MAP_SHARED, fd, 0);
+	if (!fmap)
+		exit_perr("%s: mmap failed", __func__);
+
+	SHA256(fmap, len, sha256);
+	for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+		snprintf(&ret[2 * i], 3, "%02x", sha256[i]);
+
+	munmap(fmap, len);
+	close(fd);
+
+	return ret;
 }

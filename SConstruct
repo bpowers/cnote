@@ -32,11 +32,17 @@ if not conf.CheckPkg('taglib_c'):
     print >> stderr, 'taglib_c (libtagc0-dev) required.'
     Exit(1)
 
+if not conf.CheckPkg('openssl'):
+    print >> stderr, 'openssl (libssl-dev) required.'
+    Exit(1)
+
 if not os.path.exists('/usr/bin/pg_config'):
     print >> stderr, 'pg_config (libpg-dev) required.'
     Exit(1)
 
 env.ParseConfig('pkg-config --cflags --libs libevent')
+env.ParseConfig('pkg-config --cflags --libs openssl')
+
 env.MergeFlags(env.ParseFlags(['!pg_config --cflags', '!pg_config --libs',
                                '!pg_config --ldflags', '-lpq']))
 
@@ -47,4 +53,4 @@ env.ParseConfig('pkg-config --cflags --libs taglib_c')
 env.MergeFlags(env.ParseFlags(['-Llib', '-lcfunc']))
 
 env.Program('src/ctagdump', Glob('src/ctagdump.c'))
-env.Program('src/cmusic', Glob('src/cmusic.c'))
+#env.Program('src/cmusic', Glob('src/cmusic.c'))

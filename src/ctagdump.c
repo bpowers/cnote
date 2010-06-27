@@ -39,6 +39,9 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include <time.h>
+#include <sys/stat.h>
+
 #include <taglib/tag_c.h>
 
 #include <postgresql/libpq-fe.h>
@@ -59,6 +62,7 @@ const char *program_name;
 
 static const struct option longopts[] =
 {
+	{"base-path", required_argument, NULL, 'b'},
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{NULL, 0, NULL, 0}
@@ -68,22 +72,88 @@ static void print_help(void);
 static void print_version(void);
 
 
+static inline void pg_exec(PGconn *conn, const char *query)
+{
+	PGresult *res;
+
+	res = PQexec(conn, query);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+	{
+		fprintf(stderr, "'%s' command failed: %s", query,
+			PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+}
+
+
 static inline void
-process_file(const char *file_name)
+process_file(const char *file_path, const char *base_path, PGconn *conn)
 {
 	TagLib_File *file;
 	TagLib_Tag *tag;
-	const TagLib_AudioProperties *properties;
+	PGresult *res;
+	const TagLib_AudioProperties *props;
+	const char *rel_path;
+	char mtime[26];
+	struct stat stats;
+	size_t len;
+	const char *query_args[8];
+	char *query_fmt = 
+		"INSERT INTO music (title, artist, album, track, time, path, hash, modified)" 
+		"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
 
-	file = taglib_file_new(file_name);
+	file = taglib_file_new(file_path);
 	if (file == NULL) {
 		fprintf(stderr,
 			"%s: WARNING: couldn't open '%s' for reading id3 tags.\n",
-			program_name, file_name);
+			program_name, file_path);
+		return;
+	}
+	tag = taglib_file_tag(file);
+	props = taglib_file_audioproperties(file);
+	if (tag == NULL || props == NULL) {
+		fprintf(stderr,
+			"%s: WARNING: couldn't open '%s's tags or props.\n",
+			program_name, file_path);
 		return;
 	}
 
-	
+	rel_path = file_path;
+	if (base_path) {
+		len = strlen(base_path);
+		if (!strncmp(file_path, base_path, len))
+			rel_path = &file_path[len];
+	}
+
+	stat(file_path, &stats);
+	ctime_r(&stats.st_mtime, mtime);
+	// remove the trailing newline
+	mtime[strlen(mtime)-1] = '\0';
+
+	query_args[0] = taglib_tag_title(tag);
+	query_args[1] = taglib_tag_artist(tag);
+	query_args[2] = taglib_tag_album(tag);
+	asprintf(&query_args[3], "%d", taglib_tag_track(tag));
+	asprintf(&query_args[4], "%d", taglib_audioproperties_length(props));
+	query_args[5] = rel_path;
+	query_args[6] = sha256_hex_file(file_path, stats.st_size);
+	query_args[7] = mtime;
+
+	res = PQexecParams(conn, query_fmt, 8, NULL,
+			   query_args, NULL, NULL, 0);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+	{
+		fprintf(stderr, "'%s' command failed: %s", query_fmt,
+			PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	// free the generated sha256 hex string
+	free((void *)query_args[6]);
 
 	taglib_tag_free_strings();
 	taglib_file_free(file);
@@ -94,6 +164,9 @@ int
 main(int argc, char *const argv[])
 {
 	int optc;
+	PGconn *conn;
+	const char *base_path = NULL;
+	const char *conn_info = "dbname = cmusic";
 
 	/* Make stderr line buffered - we only use it for debug info */
 	setvbuf(stderr, NULL, _IOLBF, 0);
@@ -110,6 +183,9 @@ main(int argc, char *const argv[])
 		case 'h':
 			print_help();
 			return 0;
+		case 'b':
+			base_path = optarg;
+			break;
 		default:
 			exit_msg("%s: unknown option '%c'", program_name, optc);
 		}
@@ -118,8 +194,18 @@ main(int argc, char *const argv[])
 	if (optind == argc)
 		exit_msg("%s: no input file specified", program_name);
 
+	conn = PQconnectdb(conn_info);
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	pg_exec(conn, "BEGIN");
+
 	for (int i = optind; i < argc; ++i)
-		process_file(argv[i]);
+		process_file(argv[i], base_path, conn);
+
+	pg_exec(conn, "END");
 
 	return 0;
 }

@@ -10,6 +10,7 @@
 #ifndef _NET_H_
 #define _NET_H_
 
+#define _GNU_SOURCE
 
 // returns an open TCP socket 
 int get_listen_socket(const char *addr, const char *port);
