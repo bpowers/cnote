@@ -1,6 +1,7 @@
 .scons*
 *~
-src/example
+src/ctagdump
+src/cmusic
 *.o
 *.a
 config.log
