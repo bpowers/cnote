@@ -1,0 +1,5 @@
+#!/bin/sh
+
+export MUSIC_DIR=/var/unsecure/music/
+
+find $MUSIC_DIR -type f | grep -P "\\.(mp3|m4a|ogg|flac)" | perl -p -e "s/\\n/\\0/g" | xargs -0 src/ctagdump --base-path="$MUSIC_DIR"
