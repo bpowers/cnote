@@ -99,11 +99,11 @@ ns_reads(int fd)
 }
 
 
-char **
-read_env(fd)
-{
-	return NULL;
-}
+//static char **
+//read_env(fd)
+//{
+//	return NULL;
+//}
 
 
 int

@@ -117,13 +117,13 @@ sha256 (uint8_t *hash, void *data, size_t len)
 	if (unlikely (!data))
 		exit_msg ("%s: null data", __func__);
 
-	ctx = HASH_Create (HASH_AlgSHA256);
+	ctx = NULL;//HASH_Create (HASH_AlgSHA256);
 	if (!ctx)
 		exit_perr ("%s: HASH_Create", __func__);
-	HASH_Begin (ctx);
-	HASH_Update (ctx, data, len);
-	HASH_End (ctx, hash, &hash_len, SHA256_LENGTH);
-	HASH_Destroy (ctx);
+//	HASH_Begin (ctx);
+//	HASH_Update (ctx, data, len);
+//	HASH_End (ctx, hash, &hash_len, SHA256_LENGTH);
+//	HASH_Destroy (ctx);
 
 	return 0;
 }

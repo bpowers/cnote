@@ -72,7 +72,8 @@ static void print_help(void);
 static void print_version(void);
 
 
-void *
+/*
+static void *
 cfunc_car(struct cfunc_cons *coll)
 {
 	return coll->ops->car(coll);
@@ -95,9 +96,10 @@ cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 	}
 	return 0;
 }
+*/
 
 
-void
+static void
 on_accept (int fd, short event, struct ccgi_state *state)
 {
 	int conn;
@@ -116,7 +118,8 @@ on_accept (int fd, short event, struct ccgi_state *state)
 }
 
 
-int main(int argc, char *const argv[])
+int
+main(int argc, char *const argv[])
 {
 	int optc, err;
 	const char *addr, *port;
