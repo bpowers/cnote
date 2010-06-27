@@ -1,3 +1,5 @@
+import os.path
+
 env = Environment(CC='clang',
                   CCFLAGS='-fcolor-diagnostics -fblocks -O2 -g -Wall',
                   CPPPATH='include')
@@ -33,12 +35,20 @@ if not conf.CheckPkg('id3tag'):
     print 'libid3tag (libid3tag0-dev) required.', stderr
     Exit(1)
 
+if not os.path.exists('/usr/bin/pg_config'):
+    print 'pg_config (libpg-dev) required.', stderr
+    Exit(1)
+
 env.ParseConfig('pkg-config --cflags --libs libevent')
 env.ParseConfig('pkg-config --cflags --libs nss')
+env.MergeFlags(env.ParseFlags(['!pg_config --cflags', '!pg_config --libs',
+                               '!pg_config --ldflags']))
 
 env.Library('lib/cfunc', Glob('lib/*.c'))
 
 # from here on are cmusic-specific configs
-env.ParseConfig('pkg-config --cflags --libs id3tag')
+env.ParseConfig('pkg-config --cflags --libs taglib_c')
 env.MergeFlags(env.ParseFlags(['-Llib', '-lcfunc']))
-env.Program('src/cmusic', Glob('src/*.c'))
+
+env.Program('src/ctagdump', Glob('src/ctagdump.c'))
+env.Program('src/cmusic', Glob('src/cmusic.c'))
