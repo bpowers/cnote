@@ -36,14 +36,25 @@ if not conf.CheckPkg('openssl'):
     print >> stderr, 'openssl (libssl-dev) required.'
     Exit(1)
 
+
+if not conf.CheckPkg('glib-2.0'):
+    print >> stderr, 'glib 2 (libglib2.0-dev) required.'
+    Exit(1)
+
+
+if not conf.CheckPkg('json-glib-1.0'):
+    print >> stderr, 'json-glib-1.0 (libjson-glib-dev) required.'
+    Exit(1)
+
 if not os.path.exists('/usr/bin/pg_config'):
     print >> stderr, 'pg_config (libpg-dev) required.'
     Exit(1)
 
 env.ParseConfig('pkg-config --cflags --libs libevent')
 env.ParseConfig('pkg-config --cflags --libs openssl')
+env.ParseConfig('pkg-config --cflags --libs glib-2.0')
+env.ParseConfig('pkg-config --cflags --libs json-glib-1.0')
 
-env.Prepend(CCFLAGS='-pthread ', LDFLAGS='-pthread ')
 env.MergeFlags(env.ParseFlags(['!pg_config --cflags', '!pg_config --libs',
                                '!pg_config --ldflags', '-lpq']))
 

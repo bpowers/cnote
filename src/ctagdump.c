@@ -72,7 +72,8 @@ static void print_help(void);
 static void print_version(void);
 
 
-static inline void pg_exec(PGconn *conn, const char *query)
+static inline PGresult *
+pg_exec(PGconn *conn, const char *query)
 {
 	PGresult *res;
 
@@ -85,6 +86,7 @@ static inline void pg_exec(PGconn *conn, const char *query)
 		PQfinish(conn);
 		exit_msg("");
 	}
+	return res;
 }
 
 
@@ -207,6 +209,7 @@ main(int argc, char *const argv[])
 
 	pg_exec(conn, "END");
 
+	PQfinish(conn);
 	return 0;
 }
 

@@ -40,16 +40,18 @@
 #include <getopt.h>
 
 #include <pthread.h>
+#include <time.h>
 
-// clone(2)
-#include <sched.h>
+#include <json-glib/json-glib.h>
 
 #include <event2/event.h>
 
+#include <postgresql/libpq-fe.h>
 
 
 static const char DEFAULT_PORT[] = "1969";
 static const char DEFAULT_ADDR[] = "localhost";
+static const char CONN_INFO[] = "dbname = cmusic";
 
 // should be stuck into a config.h eventually
 const char CANONICAL_NAME[] = "cmusic";
@@ -63,6 +65,7 @@ const char *program_name;
 
 static const struct option longopts[] =
 {
+	{"mount", required_argument, NULL, 'm'},
 	{"address", required_argument, NULL, 'a'},
 	{"port", required_argument, NULL, 'p'},
 	{"help", no_argument, NULL, 'h'},
@@ -101,23 +104,179 @@ cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 */
 
 
+static inline PGresult *
+pg_exec(PGconn *conn, const char *query)
+{
+	PGresult *res;
+	ExecStatusType status;
+
+	res = PQexec(conn, query);
+	status = PQresultStatus(res);
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	return res;
+}
+
+
+static void
+print_headers(struct ccgi_state *state, int http_status)
+{
+	char *header, *status;
+
+	// FIXME: validate http_status
+	switch (http_status) {
+	case 404:
+		status = "404 Not Found";
+	case 200:
+	default:
+		status = "200 OK";
+	}
+
+	asprintf(&header,
+		 "Status: %s\r\n"
+		 "Content-Type: application/json\r\n\r\n",
+		 status);
+
+	xwrite(state->socket, header, strlen(header));
+}
+
+
+static void
+artist_list(struct ccgi_state *state)
+{
+	PGconn *conn;
+	PGresult *res;
+	int rows;
+	gsize len;
+	JsonGenerator *gen;
+	JsonArray *arr;
+	JsonNode *node;
+	char *result;
+
+	print_headers(state, 200);
+
+	conn = PQconnectdb(CONN_INFO);
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	res = pg_exec(conn,
+		      "SELECT DISTINCT artist FROM music ORDER BY artist");
+	rows = PQntuples(res);
+
+	arr = json_array_sized_new(rows);
+
+	for (int i = 0; i < rows; ++i) {
+		char *val;
+		val = PQgetvalue(res, i, 0);
+		json_array_add_string_element(arr, val);
+	}
+
+	gen = json_generator_new();
+	node = json_node_new(JSON_NODE_ARRAY);
+	json_node_set_array(node, arr);
+	json_generator_set_root(gen, node);
+	result = json_generator_to_data(gen, &len);
+	write(state->socket, result, strlen(result));
+
+	json_node_free(node);
+	json_array_unref(arr);
+	g_object_unref(gen);
+
+	g_free(result);
+	PQfinish(conn);
+}
+
+
+static void
+print_req_headers(const char *key, const char *val, void *data)
+{
+	fprintf(stdout, "%s: %s\n", key, val);
+}
+
+
+static void
+handle_artist(struct ccgi_state *state, const char *request_path)
+{
+	char *buf;
+
+	if (unlikely (!state))
+		exit_msg("%s: null state", __func__);
+	if (unlikely (!request_path))
+		exit_msg("%s: null request_path", __func__);
+
+	if (!*request_path || strlen(request_path) == 1) {
+		artist_list(state);
+		return;
+	}
+
+	print_headers(state, 200);
+	g_hash_table_foreach(state->headers, (GHFunc)print_req_headers, NULL);
+
+	asprintf(&buf, "%s (%s) %s\n", CANONICAL_NAME, PACKAGE, VERSION);
+	xwrite(state->socket, buf, strlen(buf));
+	free(buf);
+}
+
+
+static void
+handle_request(struct ccgi_state *state)
+{
+	char *request_path;
+
+	if (unlikely (!state))
+		exit_msg("%s: null state", __func__);
+
+	request_path = g_hash_table_lookup(state->headers, "SCRIPT_NAME");
+	if (unlikely (!request_path || !g_str_has_prefix(request_path,
+							 state->mount_point)))
+		exit_msg("%s: awkward... bad request_path", __func__);
+	request_path = &request_path[strlen(state->mount_point)+1];
+
+	if (g_str_has_prefix(request_path, "artist"))
+		handle_artist(state, &request_path[strlen("artist")]);
+	else
+		print_headers(state, 404);
+
+	close(state->socket);
+}
+
+
 static void *
-new_request (void *data)
+new_request(void *data)
 {
 	struct ccgi_state *state;
-	char **headers;
+	time_t now;
 
 	if (unlikely (!data))
 		exit_msg("%s: null data", __func__);
 	state = data;
 
+	g_type_init();
+
 	fprintf(stderr, "%s: new thread processing request\n", program_name);
 
 	set_blocking(state->socket);
 
-	headers = read_env(state->socket);
+	state->headers = read_env(state->socket);
 
-	close(state->socket);
+	handle_request(state);
+
+	time(&now);
+	fprintf(stderr, "%s: done processing request at %s\n", program_name,
+		ctime(&now));
+
+	free(state);
+	state = NULL;
+	data = NULL;
 
 	return NULL;
 }
@@ -141,6 +300,7 @@ on_accept (int fd, short event, struct ccgi_state *state)
 
 	new_state = xmalloc0 (sizeof(*new_state));
 	new_state->socket = conn;
+	new_state->mount_point = state->mount_point;
 
 	pthread_create(&tid, NULL, new_request, new_state);
 }
@@ -160,6 +320,9 @@ main(int argc, char *const argv[])
 	program_name = argv[0];
 	addr = DEFAULT_ADDR;
 	port = DEFAULT_PORT;
+
+	// default
+	state.mount_point = "/api";
 
 	while ((optc = getopt_long(argc, argv,
 				   "a:p:hv", longopts, NULL)) != -1) {

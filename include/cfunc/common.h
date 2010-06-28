@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <glib.h>
 
 // the '!!' is from Love's LSP book.  not quite sure why they're
 // desirable.  The ones listed on KernelTrap don't have them.
@@ -41,8 +42,10 @@ char *sha256_hex_file(const char *path, size_t len);
 
 struct ccgi_state {
 	int32_t socket;
+	const char *mount_point;
 	struct event_base *ev_base;
 	struct event *ev_curr;
+	GHashTable *headers;
 };
 
 #endif // _COMMON_H_

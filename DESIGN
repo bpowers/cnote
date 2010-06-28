@@ -5,3 +5,21 @@
   - pass socket off to worker of some kind
 - keep pool of fds for Comet around
   - make sure this actually works?
+
+
+api:
+
+/auth
+	-- authorization
+/song
+/artist
+/album
+/playlist
+
+/artist/Bright Eyes
+
+/album/Name
+/artist/Name/Album
+/song/Name
+
+/playlist/Name

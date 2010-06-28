@@ -114,28 +114,33 @@ count_char(const char *str, int len, char c)
 }
 
 
-char **
+GHashTable *
 read_env(int fd)
 {
 	int num_lines, len;
 	char *headers;
 	char *header;
-	char **items;
+	GHashTable *ht;
 
 	len = ns_reads(fd, &headers);
 	num_lines = count_char(headers, len, '\0');
 
-	fprintf(stderr, "%s: num_lines: %d\n", __func__, num_lines);
+	if (num_lines % 2)
+		exit_msg("%s: o");
 
-	items = xmalloc(num_lines * sizeof(void *));
-
+	ht = g_hash_table_new(g_str_hash, g_str_equal);
 	header = headers;
 	for (int i = 0; i < num_lines; ++i) {
-		printf("header: %s\n", header);
+		char *key, *value;
+		key = header;
 		header = &header[strlen(header)+1];
+		value = header;
+		header = &header[strlen(header)+1];
+		if (*key)
+			g_hash_table_insert(ht, key, value);
 	}
 
-	return NULL;
+	return ht;
 }
 
 
@@ -164,15 +169,15 @@ get_listen_socket(const char *addr, const char *port)
 	}
 
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
-		int on;
+		//int on;
 		sock = socket (rp->ai_family, rp->ai_socktype,
 			       rp->ai_protocol);
 
 		if (sock == -1)
 			continue;
 
-		on = 1;
-		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+		//on = 1;
+		//setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 		if (bind (sock, rp->ai_addr, rp->ai_addrlen) == 0)
 			break;
 
@@ -252,4 +257,49 @@ int set_blocking(int fd)
 	flags = 0;
 	return ioctl(fd, FIOBIO, &flags);
 #endif
+}
+
+
+size_t xwrite(int fd, const char *msg, size_t len)
+{
+	int offset, size;
+
+	if (unlikely (!msg))
+		exit_msg("%s: null msg", __func__);
+
+	offset = 0;
+	size = len;
+	while (size > 0) {
+		len = write(fd, &msg[offset], size);
+		if (len < 0)
+			exit_perr("%s: write failed", __func__);
+		offset += len;
+		size -= len;
+	}
+
+	return offset;
+}
+
+
+size_t __attribute__ ((format (printf, 2, 3)))
+vxwrite(int fd, const char *msg_fmt, ...)
+{
+	va_list args;
+	char *msg;
+	int ret, err;
+
+	// record errno, because it could change in the call to vasprintf
+	err = errno;
+
+	va_start(args, msg_fmt);
+	ret = vasprintf(&msg, msg_fmt, args);
+	va_end(args);
+
+	if (ret == -1)
+		exit_perr("%s: vasprintf failed", __func__);
+
+	ret = xwrite(fd, msg, strlen(msg));
+
+	free(msg);
+	return ret;
 }

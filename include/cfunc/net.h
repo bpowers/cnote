@@ -12,6 +12,7 @@
 
 #define _GNU_SOURCE
 #include <string.h>
+#include <glib.h>
 
 // returns an open TCP socket 
 int get_listen_socket(const char *addr, const char *port);
@@ -19,6 +20,9 @@ int set_nonblocking (int fd);
 int set_blocking (int fd);
 
 size_t ns_reads(int fd, char **data);
-char **read_env(int fd);
+GHashTable *read_env(int fd);
+
+size_t xwrite(int fd, const char *msg, size_t len);
+size_t vxwrite(int fd, const char *msg_fmt, ...);
 
 #endif // _NET_H_
