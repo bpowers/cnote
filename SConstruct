@@ -2,7 +2,7 @@ import os.path
 from sys import stderr
 
 env = Environment(CC='clang',
-                  CCFLAGS='-fcolor-diagnostics -fblocks -O2 -g -Wall',
+                  CCFLAGS='-fcolor-diagnostics -fblocks -O0 -g -Wall',
                   CPPPATH='include')
 
 def CheckPkgConfig(context, version):
@@ -43,15 +43,19 @@ if not os.path.exists('/usr/bin/pg_config'):
 env.ParseConfig('pkg-config --cflags --libs libevent')
 env.ParseConfig('pkg-config --cflags --libs openssl')
 
+env.Prepend(CCFLAGS='-pthread ', LDFLAGS='-pthread ')
 env.MergeFlags(env.ParseFlags(['!pg_config --cflags', '!pg_config --libs',
                                '!pg_config --ldflags', '-lpq']))
+
+env['CC'] = 'clang'
+env['CCFLAGS'].remove('-O2')
 
 env.Library('lib/cfunc', Glob('lib/*.c'))
 
 # from here on are cmusic-specific configs
 env.ParseConfig('pkg-config --cflags --libs taglib_c')
 env.MergeFlags(env.ParseFlags(['-Llib']))
-env.Prepend(LIBS = 'cfunc')
+env.Prepend(LIBS='cfunc')
 
 env.Program('src/ctagdump', Glob('src/ctagdump.c'))
 env.Program('src/cmusic', Glob('src/cmusic.c'))

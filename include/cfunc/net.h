@@ -11,11 +11,14 @@
 #define _NET_H_
 
 #define _GNU_SOURCE
+#include <string.h>
 
 // returns an open TCP socket 
 int get_listen_socket(const char *addr, const char *port);
 int set_nonblocking (int fd);
+int set_blocking (int fd);
 
-char *ns_reads(int fd);
+size_t ns_reads(int fd, char **data);
+char **read_env(int fd);
 
 #endif // _NET_H_

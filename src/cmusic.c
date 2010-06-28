@@ -39,6 +39,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include <pthread.h>
+
 // clone(2)
 #include <sched.h>
 
@@ -99,11 +101,34 @@ cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 */
 
 
+static void *
+new_request (void *data)
+{
+	struct ccgi_state *state;
+	char **headers;
+
+	if (unlikely (!data))
+		exit_msg("%s: null data", __func__);
+	state = data;
+
+	fprintf(stderr, "%s: new thread processing request\n", program_name);
+
+	set_blocking(state->socket);
+
+	headers = read_env(state->socket);
+
+	close(state->socket);
+
+	return NULL;
+}
+
+
 static void
 on_accept (int fd, short event, struct ccgi_state *state)
 {
 	int conn;
-	//pid_t pid;
+	pthread_t tid;
+	struct ccgi_state *new_state;
 
 	if (unlikely (!state))
 		exit_msg ("%s: null state", __func__);
@@ -114,7 +139,10 @@ on_accept (int fd, short event, struct ccgi_state *state)
 		return;
 	}
 
-	//clone(new_request, );
+	new_state = xmalloc0 (sizeof(*new_state));
+	new_state->socket = conn;
+
+	pthread_create(&tid, NULL, new_request, new_state);
 }
 
 
@@ -163,13 +191,13 @@ main(int argc, char *const argv[])
 	if (!state.ev_base)
 		exit_perr("main: event_base_new");
 
-	state.ev_accept = event_new(state.ev_base, state.socket,
-				    EV_READ|EV_PERSIST,
-				    (event_callback_fn)on_accept, &state);
-	if (!state.ev_accept)
+	state.ev_curr = event_new(state.ev_base, state.socket,
+				  EV_READ|EV_PERSIST,
+				  (event_callback_fn)on_accept, &state);
+	if (!state.ev_curr)
 		exit_perr("main: event_set");
 
-	err = event_add(state.ev_accept, NULL);
+	err = event_add(state.ev_curr, NULL);
 	if (err)
 		exit_perr("main: event_add");
 

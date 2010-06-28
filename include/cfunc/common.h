@@ -42,7 +42,7 @@ char *sha256_hex_file(const char *path, size_t len);
 struct ccgi_state {
 	int32_t socket;
 	struct event_base *ev_base;
-	struct event *ev_accept;
+	struct event *ev_curr;
 };
 
 #endif // _COMMON_H_

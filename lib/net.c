@@ -65,26 +65,25 @@ ns_read_size(int fd)
 }
 
 
-char *
-ns_reads(int fd)
+size_t
+ns_reads(int fd, char **data)
 {
 	size_t size;
 	ssize_t len;
 	int offset;
-	char *data, c;
+	char c;
 
 	offset = 0;
-	data = NULL;
 	c = 0;
 
 	size = ns_read_size(fd);
 	if (unlikely(size <= 0))
 		exit_msg("%s: invalid size (%d)", __func__, size);
 
-	data = xmalloc(size);
+	*data = xmalloc(size);
 
 	while (size > 0) {
-		len = read(fd, &data[offset], size);
+		len = read(fd, &(*data)[offset], size);
 		if (len == 0)
 			exit_perr("%s: short netstring read", __func__);
 		offset += len;
@@ -95,15 +94,49 @@ ns_reads(int fd)
 	if (c != ',')
 		exit_msg("%s: missing netstring terminator", __func__);
 
-	return data;
+	return len;
 }
 
 
-//static char **
-//read_env(fd)
-//{
-//	return NULL;
-//}
+// FIXME: not unicode safe I guess.
+static int
+count_char(const char *str, int len, char c)
+{
+	int count;
+	if (unlikely (!str))
+		exit_msg("%s: null str", __func__);
+
+	for (int i = 0; i < len; ++i)
+		if (str[i] == c)
+			++count;
+
+	return count;
+}
+
+
+char **
+read_env(int fd)
+{
+	int num_lines, len;
+	char *headers;
+	char *header;
+	char **items;
+
+	len = ns_reads(fd, &headers);
+	num_lines = count_char(headers, len, '\0');
+
+	fprintf(stderr, "%s: num_lines: %d\n", __func__, num_lines);
+
+	items = xmalloc(num_lines * sizeof(void *));
+
+	header = headers;
+	for (int i = 0; i < num_lines; ++i) {
+		printf("header: %s\n", header);
+		header = &header[strlen(header)+1];
+	}
+
+	return NULL;
+}
 
 
 int
@@ -123,18 +156,23 @@ get_listen_socket(const char *addr, const char *port)
 	err = getaddrinfo(addr, port, &hints, &result);
 	if (err) {
 		if (err == EAI_SYSTEM)
-			exit_perr ("get_socket: getaddrinfo");
+			exit_perr ("%s: getaddrinfo", __func__);
 
-		fprintf(stderr, "get_socket: getaddrinfo: %s\n",
-			 gai_strerror (err));
+		fprintf(stderr, "%s: getaddrinfo: %s\n",
+			__func__, gai_strerror (err));
 		exit(EXIT_FAILURE);
 	}
 
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		int on;
 		sock = socket (rp->ai_family, rp->ai_socktype,
 			       rp->ai_protocol);
+
 		if (sock == -1)
 			continue;
+
+		on = 1;
+		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 		if (bind (sock, rp->ai_addr, rp->ai_addrlen) == 0)
 			break;
 
@@ -142,7 +180,7 @@ get_listen_socket(const char *addr, const char *port)
 	}
 
 	if (rp == NULL)
-		exit_perr ("get_socket: couldn't bind");
+		exit_perr ("%s: couldn't bind", __func__);
 
 	freeaddrinfo (result);
 
@@ -194,6 +232,24 @@ int set_nonblocking(int fd)
 #else
 	// Otherwise, use the old way of doing it
 	flags = 1;
+	return ioctl(fd, FIOBIO, &flags);
+#endif
+}
+
+int set_blocking(int fd)
+{
+	int flags;
+
+// If they have O_NONBLOCK, use the Posix way to do it
+#if defined(O_NONBLOCK)
+	// Fixme: O_NONBLOCK is defined but broken on SunOS 4.1.x and
+	// AIX 3.2.5.
+	if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+		flags = 0;
+	return fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+#else
+	// Otherwise, use the old way of doing it
+	flags = 0;
 	return ioctl(fd, FIOBIO, &flags);
 #endif
 }
