@@ -126,7 +126,7 @@ read_env(int fd)
 	num_lines = count_char(headers, len, '\0');
 
 	if (num_lines % 2)
-		exit_msg("%s: o");
+		exit_msg("%s: odd number of headers; something broke");
 
 	ht = g_hash_table_new(g_str_hash, g_str_equal);
 	header = headers;

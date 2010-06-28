@@ -160,6 +160,8 @@ artist_list(struct ccgi_state *state)
 	JsonNode *node;
 	char *result;
 
+	fprintf(stderr, "INFO: artist list\n");
+
 	print_headers(state, 200);
 
 	conn = PQconnectdb(CONN_INFO);
@@ -197,33 +199,112 @@ artist_list(struct ccgi_state *state)
 
 
 static void
+artist_query(struct ccgi_state *state, const char *artist)
+{
+	PGconn *conn;
+	PGresult *res;
+	ExecStatusType status;
+	int rows;
+	gsize len;
+	JsonGenerator *gen;
+	JsonArray *arr;
+	JsonNode *node;
+	char *result;
+	const char *query_args[1], *query_fmt;
+
+	fprintf(stderr, "INFO: artist query\n");
+
+	query_fmt = "SELECT title, artist, album, track, path"
+		    "    FROM music WHERE artist = $1"
+		    "    ORDER BY album, track, title";
+
+	print_headers(state, 200);
+
+	conn = PQconnectdb(CONN_INFO);
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	// FIXME: sanitize artist
+	query_args[0] = artist;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);      
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+	rows = PQntuples(res);
+
+	arr = json_array_sized_new(rows);
+
+	for (int i = 0; i < rows; ++i) {
+		char *title, *artist, *album, *track_s, *path;
+		JsonObject *obj = json_object_new();
+
+		title = PQgetvalue(res, i, 0);
+		artist = PQgetvalue(res, i, 1);
+		album = PQgetvalue(res, i, 2);
+		track_s = PQgetvalue(res, i, 3);
+		path = PQgetvalue(res, i, 4);
+
+		json_object_set_string_member(obj, "title", title);
+		json_object_set_string_member(obj, "artist", artist);
+		json_object_set_string_member(obj, "album", album);
+		json_object_set_int_member(obj, "track", atoi(track_s));
+		json_object_set_string_member(obj, "path", path);
+
+		json_array_add_object_element(arr, obj);
+	}
+
+	gen = json_generator_new();
+	node = json_node_new(JSON_NODE_ARRAY);
+	json_node_set_array(node, arr);
+	json_generator_set_root(gen, node);
+	result = json_generator_to_data(gen, &len);
+	write(state->socket, result, strlen(result));
+
+	json_node_free(node);
+	json_array_unref(arr);
+	g_object_unref(gen);
+
+	g_free(result);
+	PQfinish(conn);
+}
+
+
+/*
+static void
 print_req_headers(const char *key, const char *val, void *data)
 {
 	fprintf(stdout, "%s: %s\n", key, val);
 }
+*/
 
 
 static void
 handle_artist(struct ccgi_state *state, const char *request_path)
 {
-	char *buf;
+	char *artist;
 
 	if (unlikely (!state))
 		exit_msg("%s: null state", __func__);
 	if (unlikely (!request_path))
 		exit_msg("%s: null request_path", __func__);
 
-	if (!*request_path || strlen(request_path) == 1) {
+	if (!*request_path || !strcmp(request_path, "/")) {
 		artist_list(state);
 		return;
 	}
 
-	print_headers(state, 200);
-	g_hash_table_foreach(state->headers, (GHFunc)print_req_headers, NULL);
-
-	asprintf(&buf, "%s (%s) %s\n", CANONICAL_NAME, PACKAGE, VERSION);
-	xwrite(state->socket, buf, strlen(buf));
-	free(buf);
+	artist = g_uri_unescape_string(&request_path[1], NULL);
+	artist_query(state, artist);
+	free(artist);
 }
 
 
