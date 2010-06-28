@@ -10,7 +10,7 @@ var bp = {};
 bp.utils = function () {
 	return {
 
-        LOADING_HTML: 'loading...',
+        LOADING_HTML: "loading...",
 
         isNull: function (obj) {
 		if (typeof obj === 'object' && !obj)
@@ -51,7 +51,6 @@ bp.utils = function () {
 		for (i=0, n=arr.length; i < n; ++i)
 			if (!contains(ret, arr[i]))
 				ret.push(arr[i]);
-		
 		return ret;
 	},
 
