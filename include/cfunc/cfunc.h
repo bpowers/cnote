@@ -26,6 +26,8 @@
 #ifndef __CFUNC_H__
 #define __CFUNC_H__
 
+#define _GNU_SOURCE
+
 #include <Block.h>
 
 #include <stdbool.h>
