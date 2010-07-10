@@ -25,7 +25,6 @@
  */
 #include <cfunc/cfunc.h>
 #include <cfunc/common.h>
-#include <cfunc/net.h>
 
 #include <stddef.h>
 #include <stdio.h>
@@ -45,12 +44,14 @@
 #include <json-glib/json-glib.h>
 
 #include <event2/event.h>
+#include <event2/http.h>
+#include <event2/buffer.h>
 
 #include <postgresql/libpq-fe.h>
 
 
-static const char DEFAULT_PORT[] = "1969";
-static const char DEFAULT_ADDR[] = "localhost";
+static uint16_t DEFAULT_PORT = 1969;
+static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "dbname = cmusic";
 
 // should be stuck into a config.h eventually
@@ -75,6 +76,9 @@ static const struct option longopts[] =
 
 static void print_help(void);
 static void print_version(void);
+
+
+typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
 
 /*
@@ -126,43 +130,19 @@ pg_exec(PGconn *conn, const char *query)
 
 
 static void
-print_headers(struct ccgi_state *state, int http_status)
-{
-	char *header, *status;
-
-	// FIXME: validate http_status
-	switch (http_status) {
-	case 404:
-		status = "404 Not Found";
-	case 200:
-	default:
-		status = "200 OK";
-	}
-
-	asprintf(&header,
-		 "Status: %s\r\n"
-		 "Content-Type: application/json\r\n\r\n",
-		 status);
-
-	xwrite(state->socket, header, strlen(header));
-}
-
-
-static void
-artist_list(struct ccgi_state *state)
+artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 {
 	PGconn *conn;
 	PGresult *res;
-	int rows;
+	int rows, ilen;
 	gsize len;
 	JsonGenerator *gen;
 	JsonArray *arr;
 	JsonNode *node;
 	char *result;
+	struct evbuffer *buf;
 
 	fprintf(stderr, "INFO: artist list\n");
-
-	print_headers(state, 200);
 
 	conn = PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
@@ -195,7 +175,14 @@ artist_list(struct ccgi_state *state)
 
 	result = json_generator_to_data(gen, &len);
 	g_object_unref(gen);
-	write(state->socket, result, len);
+
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+	ilen = len;
+	evbuffer_add_printf(buf, "%*s", ilen, result);
+	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
+	evbuffer_free(buf);
 
 	g_free(result);
 
@@ -205,7 +192,8 @@ artist_list(struct ccgi_state *state)
 
 
 static void
-artist_query(struct ccgi_state *state, const char *artist)
+artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
+	     const char *artist)
 {
 	PGconn *conn;
 	PGresult *res;
@@ -217,14 +205,13 @@ artist_query(struct ccgi_state *state, const char *artist)
 	JsonNode *node;
 	char *result;
 	const char *query_args[1], *query_fmt;
+	struct evbuffer *buf;
 
 	fprintf(stderr, "INFO: artist query\n");
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
 		    "    ORDER BY album, track, title";
-
-	print_headers(state, 200);
 
 	conn = PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
@@ -268,128 +255,68 @@ artist_query(struct ccgi_state *state, const char *artist)
 		json_array_add_object_element(arr, obj);
 	}
 
-	gen = json_generator_new();
 	node = json_node_new(JSON_NODE_ARRAY);
 	json_node_set_array(node, arr);
-	json_generator_set_root(gen, node);
-	result = json_generator_to_data(gen, &len);
-	write(state->socket, result, strlen(result));
-
-	json_node_free(node);
 	json_array_unref(arr);
+
+	gen = json_generator_new();
+	json_generator_set_root(gen, node);
+	json_node_free(node);
+
+	result = json_generator_to_data(gen, &len);
 	g_object_unref(gen);
 
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+	evbuffer_add_printf(buf, "%s", result);
+	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
+	evbuffer_free(buf);
+
 	g_free(result);
+
 	PQclear(res);
 	PQfinish(conn);
 }
 
 
-/*
 static void
-print_req_headers(const char *key, const char *val, void *data)
-{
-	fprintf(stdout, "%s: %s\n", key, val);
-}
-*/
-
-
-static void
-handle_artist(struct ccgi_state *state, const char *request_path)
+handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 {
 	char *artist;
+	const char*request_path;
 
 	if (unlikely (!state))
 		exit_msg("%s: null state", __func__);
-	if (unlikely (!request_path))
-		exit_msg("%s: null request_path", __func__);
 
-	if (!*request_path || !strcmp(request_path, "/")) {
-		artist_list(state);
+	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
+
+	if (!request_path || !strcmp(request_path, "/")) {
+		artist_list(req, state);
 		return;
 	}
 
 	artist = g_uri_unescape_string(&request_path[1], NULL);
-	artist_query(state, artist);
+	artist_query(req, state, artist);
 	free(artist);
 }
 
 
 static void
-handle_request(struct ccgi_state *state)
+handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 {
-	char *request_path;
+	const char*request_path;
+	struct evbuffer *buf;
 
-	if (unlikely (!state))
-		exit_msg("%s: null state", __func__);
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
 
-	request_path = g_hash_table_lookup(state->headers, "SCRIPT_NAME");
-	if (unlikely (!request_path || !g_str_has_prefix(request_path,
-							 state->mount_point)))
-		exit_msg("%s: awkward... bad request_path", __func__);
-	request_path = &request_path[strlen(state->mount_point)+1];
+	request_path = evhttp_request_get_uri(req);
 
-	if (g_str_has_prefix(request_path, "artist"))
-		handle_artist(state, &request_path[strlen("artist")]);
-	else
-		print_headers(state, 404);
-
-	close(state->socket);
-}
-
-
-static void *
-new_request(void *data)
-{
-	struct ccgi_state *state;
-	time_t now;
-
-	if (unlikely (!data))
-		exit_msg("%s: null data", __func__);
-	state = data;
-
-	fprintf(stderr, "%s: new thread processing request\n", program_name);
-
-	set_blocking(state->socket);
-
-	state->headers = read_env(state->socket);
-
-	handle_request(state);
-
-	time(&now);
-	fprintf(stderr, "%s: done processing request at %s\n", program_name,
-		ctime(&now));
-
-	g_hash_table_destroy(state->headers);
-	free(state);
-	state = NULL;
-	data = NULL;
-
-	return NULL;
-}
-
-
-static void
-on_accept (int fd, short event, struct ccgi_state *state)
-{
-	int conn;
-	pthread_t tid;
-	struct ccgi_state *new_state;
-
-	if (unlikely (!state))
-		exit_msg ("%s: null state", __func__);
-
-	conn = accept(state->socket, NULL, NULL);
-	if (unlikely(conn < 1)) {
-		fprintf (stderr, "%s: accept failed!\n", __func__);
-		return;
-	}
-
-	new_state = xmalloc0 (sizeof(*new_state));
-	new_state->socket = conn;
-	new_state->mount_point = state->mount_point;
-
-	pthread_create(&tid, NULL, new_request, new_state);
+	evbuffer_add_printf(buf, "\"bad request path '%s'\"", request_path);
+	evhttp_send_reply(req, HTTP_OK, "not found", buf);
+	evbuffer_free(buf);
 }
 
 
@@ -397,7 +324,8 @@ int
 main(int argc, char *const argv[])
 {
 	int optc, err;
-	const char *addr, *port;
+	uint16_t port;
+	const char *addr;
 	struct ccgi_state state;
 	struct sigaction sa = {.sa_handler = SIG_IGN};
 
@@ -425,7 +353,8 @@ main(int argc, char *const argv[])
 			addr = (const char *)optarg;
 			break;
 		case 'p':
-			port = (const char *)optarg;
+			// FIXME: deal with errorz
+			port = atoi(optarg);
 			break;
 		default:
 			fprintf(stderr, "unknown option '%c'", optc);
@@ -438,20 +367,20 @@ main(int argc, char *const argv[])
 	// automatically reap zombies
 	sigaction(SIGCHLD, &sa, NULL);
 
-	state.socket = get_listen_socket(addr, port);
 	state.ev_base = event_base_new();
 	if (!state.ev_base)
 		exit_perr("main: event_base_new");
 
-	state.ev_curr = event_new(state.ev_base, state.socket,
-				  EV_READ|EV_PERSIST,
-				  (event_callback_fn)on_accept, &state);
-	if (!state.ev_curr)
-		exit_perr("main: event_set");
+	state.ev_http = evhttp_new(state.ev_base);
+	if (!state.ev_http)
+		exit_perr("main: evhttp_new");
 
-	err = event_add(state.ev_curr, NULL);
+	err = evhttp_bind_socket(state.ev_http, addr, port);
 	if (err)
-		exit_perr("main: event_add");
+		exit_msg("main: couldn't bind to %s:%d", addr, port);
+
+	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
+	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);

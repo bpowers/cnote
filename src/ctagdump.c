@@ -25,7 +25,6 @@
  */
 #include <cfunc/cfunc.h>
 #include <cfunc/common.h>
-#include <cfunc/net.h>
 
 #include <stddef.h>
 #include <stdio.h>
