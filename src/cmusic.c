@@ -177,23 +177,29 @@ artist_list(struct ccgi_state *state)
 	arr = json_array_sized_new(rows);
 
 	for (int i = 0; i < rows; ++i) {
+		JsonNode *n;
 		char *val;
 		val = PQgetvalue(res, i, 0);
-		json_array_add_string_element(arr, val);
+		n = json_node_new(JSON_NODE_VALUE);
+		json_node_set_string(n, val);
+		json_array_add_element(arr, n);
 	}
 
-	gen = json_generator_new();
 	node = json_node_new(JSON_NODE_ARRAY);
 	json_node_set_array(node, arr);
-	json_generator_set_root(gen, node);
-	result = json_generator_to_data(gen, &len);
-	write(state->socket, result, strlen(result));
-
-	json_node_free(node);
 	json_array_unref(arr);
+
+	gen = json_generator_new();
+	json_generator_set_root(gen, node);
+	json_node_free(node);
+
+	result = json_generator_to_data(gen, &len);
 	g_object_unref(gen);
+	write(state->socket, result, len);
 
 	g_free(result);
+
+	PQclear(res);
 	PQfinish(conn);
 }
 
@@ -274,6 +280,7 @@ artist_query(struct ccgi_state *state, const char *artist)
 	g_object_unref(gen);
 
 	g_free(result);
+	PQclear(res);
 	PQfinish(conn);
 }
 
@@ -341,8 +348,6 @@ new_request(void *data)
 		exit_msg("%s: null data", __func__);
 	state = data;
 
-	g_type_init();
-
 	fprintf(stderr, "%s: new thread processing request\n", program_name);
 
 	set_blocking(state->socket);
@@ -355,6 +360,7 @@ new_request(void *data)
 	fprintf(stderr, "%s: done processing request at %s\n", program_name,
 		ctime(&now));
 
+	g_hash_table_destroy(state->headers);
 	free(state);
 	state = NULL;
 	data = NULL;
@@ -427,6 +433,8 @@ main(int argc, char *const argv[])
 		}
 	}
 
+	g_type_init();
+
 	// automatically reap zombies
 	sigaction(SIGCHLD, &sa, NULL);
 
@@ -461,7 +469,7 @@ print_help()
 	printf ("\
 Usage: %s [-aphv]\n", program_name);
 	fputs ("\
-SCGI RESTful access to your music collection.\n\n\
+RESTful access to data about your music collection.\n\n\
 Options:\n", stdout);
 	puts ("");
 	fputs ("\

@@ -22,7 +22,7 @@
 // desirable.  The ones listed on KernelTrap don't have them.
 #define likely(x)   __builtin_expect(!!(x),1)
 #define unlikely(x) __builtin_expect(!!(x),0)
-#define __packed    __attribute__ ((packed))
+#define __packed    __attribute__((packed))
 
 // backlog arg for listen(2); max clients to keep in queue
 extern const int BACKLOG;

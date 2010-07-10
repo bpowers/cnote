@@ -140,6 +140,8 @@ read_env(int fd)
 			g_hash_table_insert(ht, key, value);
 	}
 
+	free(headers);
+
 	return ht;
 }
 
