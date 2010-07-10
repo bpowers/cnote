@@ -31,6 +31,7 @@ bp.fsm = function () {
     // arbitrarily change the location without affecting anything in the
     // states themselves.
     var content = '#content';
+    var header = '#header';
 
     var config = {};
 
@@ -79,10 +80,10 @@ bp.fsm = function () {
         transition: function (from, to, options) {
             // I'm worried something may happen where we end up with
             // calls to transition coming from non-current states.
-            if (from !== current) {
-                console.error('expired transition from state "%s"', from);
-                return;
-            }
+            //if (from !== current) {
+            //    console.error('expired transition from state "%s"', from);
+            //    return;
+            //}
 
             // doesn't make sense to transition from the current state
             // _to_ the current state, so break.
@@ -101,6 +102,7 @@ bp.fsm = function () {
             }
 
             options.content = content;
+            options.header = header;
             options.config = config;
 
             var currState = states[current];

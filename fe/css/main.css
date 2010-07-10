@@ -1,0 +1,70 @@
+html {
+    background: #444;
+}
+
+body {
+    font-family: 'Droid Sans';
+    font-size: 12px;
+    color: gray;
+    background: #444;
+}
+
+a {
+    color: #ccc;
+    text-decoration: none;
+}
+
+.row {
+    padding: 4px;
+    text-shadow: rgba(0, 0, 0, 0.199219) 0px 2px 5px;
+}
+
+.row:nth-child(odd) {
+    background: #333;
+}
+
+.row:nth-child(even) {
+    background: #444;
+}
+
+#nav {
+    width: 1200px;
+    overflow: hidden;
+    float: right;
+}
+
+#content {
+    padding-top: 20px;
+    padding-bottom: 20px;
+    position: absolute;
+    top: 300px;
+    bottom: 20px;
+    overflow: auto;
+    width: 1200px;
+    overflow: auto;
+    float: right;
+}
+
+#artists {
+    height: 300px;
+    width: 50%;
+    overflow: auto;
+    padding: 0px;
+    float: left;
+}
+
+#albums {
+    height: 300px;
+    width: 50%;
+    overflow: auto;
+    padding: 0px;
+    float: right;
+}
+
+#footer {
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    text-align: center;
+    padding-bottom: 4px;
+}

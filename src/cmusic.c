@@ -142,8 +142,6 @@ query_list(const char *query_fmt)
 	JsonNode *node;
 	char *result;
 
-	fprintf(stderr, "INFO: artist list\n");
-
 	conn = PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
 		PQfinish(conn);
@@ -191,12 +189,16 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	fprintf(stderr, "INFO: artist list\n");
 
 	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
+	fprintf(stderr, "  got query\n");
 
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
 	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
+
+	fprintf(stderr, "  sending reply...\n");	
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
+	fprintf(stderr, "  done.\n");
 	evbuffer_free(buf);
 
 	g_free(result);
@@ -308,12 +310,12 @@ handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 
 	if (!request_path || !strcmp(request_path, "/")) {
 		artist_list(req, state);
-		return;
 	}
-
-	artist = g_uri_unescape_string(&request_path[1], NULL);
-	artist_query(req, state, artist);
-	free(artist);
+	else {
+		artist = g_uri_unescape_string(&request_path[1], NULL);
+		artist_query(req, state, artist);
+		free(artist);
+	}
 }
 
 

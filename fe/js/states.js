@@ -23,6 +23,7 @@ bp.fsm.addStates({
 
 function () {
     var artists = null;
+    var albums = null;
     var loadingHtml = '';
 
     return {
@@ -30,29 +31,60 @@ function () {
         enter: function (options) {
             var name = this.name;
             // pop up a loading message.
-            $(options.content).html(bp.utils.LOADING_HTML);
+            $(options.header).html(bp.utils.LOADING_HTML);
 
             $.ajax({
                 url: '/api/artist',
                 dataType: 'json',
                 success: function (data, status) {
                     artists = data;
-                    bp.fsm.transition(name, 'artists');
+		    if (artists && albums)
+			bp.fsm.transition(name, 'artists');
+                }
+            });
+            $.ajax({
+                url: '/api/album',
+                dataType: 'json',
+                success: function (data, status) {
+                    albums = data;
+		    if (artists && albums)
+			bp.fsm.transition(name, 'artists');
                 }
             });
         },
         exit: function (options) {
+	    var artistsHtml = '';
+	    var albumsHtml = '';
 	    if (!artists)
-		loadingHtml = 'this page intentionally left blank.';
+		loadingHtml = 'intentionally left blank.';
 	    else
 		artists.map(function (a) {
-		    loadingHtml += '<div class="row"><a href="#' + a + '">' +
+		    if (!a)
+			return;
+		    artistsHtml += '<div class="row"><a href="#' + a + '">' +
 			a + '</a></div>';
 		});
+	    artistsHtml = '<div id="artists">' + artistsHtml + '</div>';
+
+	    if (!albums)
+		loadingHtml = 'intentionally left blank.';
+	    else
+		albums.map(function (a) {
+		    if (!a)
+			return;
+		    albumsHtml += '<div class="row"><a href="#' + a + '">' +
+			a + '</a></div>';
+		});
+	    albumsHtml = '<div id="albums">' + albumsHtml + '</div>';
             //loadingHtml = bp.utils.applyTemplate(loadingHtml,
             //                                     options.config);
-            $(options.content).html(loadingHtml);
-	    $('.row a').bind('click', function (event) {
+
+	    loadingHtml += '<div id="nav">\n\n';
+	    loadingHtml += artistsHtml + '\n\n';
+	    loadingHtml += albumsHtml + '\n\n';
+	    loadingHtml += '</div>\n\n';
+            $(options.header).html(loadingHtml);
+	    $(options.header + ' .row a').bind('click', function (event) {
 		event.preventDefault();
 		bp.fsm.transition('artists', 'loading-artist',
 				  {artist: $(this).text()});
@@ -103,7 +135,7 @@ function () {
             //loadingHtml = bp.utils.applyTemplate(loadingHtml,
             //                                     options.config);
             $(options.content).html(loadingHtml);
-	    $('.row a').bind('click', function (event) {
+	    $(options.content + '.row a').bind('click', function (event) {
 		event.preventDefault();
 		$('#audio').remove();
 		$('#header').append('<audio src="' + $(this).attr('href') +
