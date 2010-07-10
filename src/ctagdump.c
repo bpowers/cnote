@@ -137,8 +137,9 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	query_args[0] = taglib_tag_title(tag);
 	query_args[1] = taglib_tag_artist(tag);
 	query_args[2] = taglib_tag_album(tag);
-	asprintf(&query_args[3], "%d", taglib_tag_track(tag));
-	asprintf(&query_args[4], "%d", taglib_audioproperties_length(props));
+	asprintf((char **)&query_args[3], "%d", taglib_tag_track(tag));
+	asprintf((char **)&query_args[4], "%d",
+		 taglib_audioproperties_length(props));
 	query_args[5] = rel_path;
 	query_args[6] = sha256_hex_file(file_path, stats.st_size);
 	query_args[7] = mtime;
