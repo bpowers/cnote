@@ -25,6 +25,7 @@
  */
 #include <cfunc/cfunc.h>
 #include <cfunc/common.h>
+#include <cfunc/net.h>
 
 #include <stddef.h>
 #include <stdio.h>
@@ -51,7 +52,9 @@
 #include <postgresql/libpq-fe.h>
 
 
-static uint16_t DEFAULT_PORT = 1969;
+static int g_count = 0;
+
+static const char DEFAULT_PORT[] = "1969";
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "dbname = cmusic";
 
@@ -186,7 +189,8 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	char *result;
 	struct evbuffer *buf;
 
-	fprintf(stderr, "INFO: artist list\n");
+	fprintf(stderr, "INFO: artist list (%s) %d\n",
+		evhttp_request_get_uri(hreq), g_count++);
 
 	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
 	fprintf(stderr, "  got query\n");
@@ -221,7 +225,8 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	const char *query_args[1], *query_fmt;
 	struct evbuffer *buf;
 
-	fprintf(stderr, "INFO: artist query\n");
+	fprintf(stderr, "INFO: artist query (%s) %d\n",
+		evhttp_request_get_uri(hreq), g_count++);
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
@@ -331,7 +336,8 @@ handle_album(struct evhttp_request *req, struct ccgi_state *state)
 	evhttp_add_header(req->output_headers, "Content-Type",
 			  "application/json; charset=UTF-8");
 
-	fprintf(stderr, "INFO: album list\n");
+	fprintf(stderr, "INFO: album list (%s) %d\n",
+		evhttp_request_get_uri(req), g_count++);
 
 	result = query_list("SELECT DISTINCT album FROM music ORDER BY album");
 
@@ -352,6 +358,9 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 	const char*request_path;
 	struct evbuffer *buf;
 
+	fprintf(stderr, "INFO: generic (%s) %d\n",
+		evhttp_request_get_uri(req), g_count++);
+
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
@@ -370,9 +379,8 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 int
 main(int argc, char *const argv[])
 {
-	int optc, err;
-	uint16_t port;
-	const char *addr;
+	int optc, err, socket;
+	const char *addr, *port;
 	struct ccgi_state state;
 	struct sigaction sa = {.sa_handler = SIG_IGN};
 
@@ -400,8 +408,7 @@ main(int argc, char *const argv[])
 			addr = (const char *)optarg;
 			break;
 		case 'p':
-			// FIXME: deal with errorz
-			port = atoi(optarg);
+			port = (const char *)optarg;
 			break;
 		default:
 			fprintf(stderr, "unknown option '%c'", optc);
@@ -410,21 +417,23 @@ main(int argc, char *const argv[])
 	}
 
 	g_type_init();
+	event_init();
 
 	// automatically reap zombies
 	sigaction(SIGCHLD, &sa, NULL);
 
-	state.ev_base = event_base_new();
+	//state.ev_base = event_base_new();
 	if (!state.ev_base)
 		exit_perr("main: event_base_new");
 
-	state.ev_http = evhttp_new(state.ev_base);
+	state.ev_http = evhttp_start(addr, 1969);//evhttp_new(state.ev_base);
 	if (!state.ev_http)
 		exit_perr("main: evhttp_new");
 
-	err = evhttp_bind_socket(state.ev_http, addr, port);
-	if (err)
-		exit_msg("main: couldn't bind to %s:%d", addr, port);
+	//socket = get_listen_socket(addr, port);
+	//err = evhttp_accept_socket(state.ev_http, socket);
+	//if (err)
+	//	exit_msg("main: couldn't bind to %s:%s", addr, port);
 
 	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
 	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
@@ -434,7 +443,8 @@ main(int argc, char *const argv[])
 		program_name);
 
 	// the main event loop
-	event_base_dispatch(state.ev_base);
+	event_dispatch();
+	//event_base_dispatch(state.ev_base);
 
 	return 0;
 }
