@@ -1,4 +1,4 @@
-/*===--- exaample.c - Example cfunc program ------------------------------===//
+/*===--- cmusic.c - RESTful music information api -----------------------===//
  *
  * Copyright 2010 Bobby Powers
  *
@@ -19,7 +19,7 @@
  *
  *===--------------------------------------------------------------------===//
  *
- * Just an example of how to use cfunc.
+ * The main dispatch for the RESTful API
  *
  *===--------------------------------------------------------------------===//
  */
@@ -130,8 +130,8 @@ pg_exec(PGconn *conn, const char *query)
 }
 
 
-static void
-artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
+static char *
+query_list(const char *query_fmt)
 {
 	PGconn *conn;
 	PGresult *res;
@@ -141,7 +141,6 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	JsonArray *arr;
 	JsonNode *node;
 	char *result;
-	struct evbuffer *buf;
 
 	fprintf(stderr, "INFO: artist list\n");
 
@@ -151,8 +150,7 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
-	res = pg_exec(conn,
-		      "SELECT DISTINCT artist FROM music ORDER BY artist");
+	res = pg_exec(conn, query_fmt);
 	rows = PQntuples(res);
 
 	arr = json_array_sized_new(rows);
@@ -177,17 +175,31 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	result = json_generator_to_data(gen, &len);
 	g_object_unref(gen);
 
+	PQclear(res);
+	PQfinish(conn);
+
+	return result;
+}
+
+
+static void
+artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
+{
+	char *result;
+	struct evbuffer *buf;
+
+	fprintf(stderr, "INFO: artist list\n");
+
+	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
+
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, len, NULL, NULL);
+	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 
 	g_free(result);
-
-	PQclear(res);
-	PQfinish(conn);
 }
 
 
@@ -306,6 +318,33 @@ handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 
 
 static void
+handle_album(struct evhttp_request *req, struct ccgi_state *state)
+{
+	char *result;
+	struct evbuffer *buf;
+
+	if (unlikely (!state))
+		exit_msg("%s: null state", __func__);
+
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
+
+	fprintf(stderr, "INFO: album list\n");
+
+	result = query_list("SELECT DISTINCT album FROM music ORDER BY album");
+
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
+	evhttp_send_reply(req, HTTP_OK, "OK", buf);
+	evbuffer_free(buf);
+
+	g_free(result);
+}
+
+
+static void
 handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 {
 	const char*request_path;
@@ -387,6 +426,7 @@ main(int argc, char *const argv[])
 
 	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
 	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
+	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_album, &state);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
