@@ -45,6 +45,7 @@
 
 #include <event2/event.h>
 #include <event2/http.h>
+#include <event2/http_struct.h>
 #include <event2/buffer.h>
 
 #include <postgresql/libpq-fe.h>
@@ -134,7 +135,7 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 {
 	PGconn *conn;
 	PGresult *res;
-	int rows, ilen;
+	int rows;
 	gsize len;
 	JsonGenerator *gen;
 	JsonArray *arr;
@@ -179,8 +180,7 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	ilen = len;
-	evbuffer_add_printf(buf, "%*s", ilen, result);
+	evbuffer_add_reference(buf, result, len, NULL, NULL);
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 
@@ -269,7 +269,7 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_printf(buf, "%s", result);
+	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 
@@ -288,6 +288,9 @@ handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 
 	if (unlikely (!state))
 		exit_msg("%s: null state", __func__);
+
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
 
 	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
 
@@ -311,6 +314,9 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
+
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
 
 	request_path = evhttp_request_get_uri(req);
 
