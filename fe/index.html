@@ -2,13 +2,12 @@
           "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta content="text/html" charset="UTF-8">
   <title>cmusic</title>
   <script type="text/javascript"
           src="js/jquery.min.js">
   </script>
   <script type="text/javascript" src="js/bp.utils.js"></script>
-  <script type="text/javascript" src="js/bp.fsm.js"></script>
   <script type="text/javascript" src="js/states.js"></script>
 
   <link href="https://fonts.googleapis.com/css?family=Droid+Sans|Droid+Sans+Mono" rel="stylesheet" type="text/css" />
@@ -20,10 +19,13 @@
   <div id="header"></div>
   <div id="content">
     <div id="content-left">
-      <div id="audio"></div>
+      <div id="now-playing"></div>
     </div>
     <div id="content-right">
-      <div id="browse"></div>
+      <div id="browse">
+	<div id="artist"></div>
+	<div id="album"></div>
+      </div>
       <div id="details"></div>
     </div>
   </div>

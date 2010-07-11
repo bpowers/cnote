@@ -109,6 +109,8 @@ cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 */
 
 
+// passed to evbuffer_add_reference as a function to call when the
+// buffer it points to isn't referenced anymore.
 static void
 free_cb(const void *data, size_t datalen, void *extra)
 {

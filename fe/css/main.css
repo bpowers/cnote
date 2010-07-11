@@ -27,7 +27,19 @@ a {
     background: #444;
 }
 
-#content {
+#selected {
+    background: #222;
+}
+
+#content-left {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 300px;
+    bottom: 20px;
+}
+
+#content-right {
     position: absolute;
     top: 0px;
     left: 300px;
@@ -71,7 +83,7 @@ a {
     float: right;
 }
 
-#artists {
+#artist {
     height: 300px;
     width: 50%;
     overflow: auto;
@@ -79,7 +91,7 @@ a {
     float: left;
 }
 
-#albums {
+#album {
     height: 300px;
     width: 50%;
     overflow: auto;
