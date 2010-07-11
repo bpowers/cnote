@@ -30,8 +30,8 @@ bp.fsm = function () {
     // keep track of where state's content will go.  this allows us to
     // arbitrarily change the location without affecting anything in the
     // states themselves.
-    var content = '#content';
-    var header = '#header';
+    var content = '#details';
+    var header = '#browse';
 
     var config = {};
 

@@ -4,7 +4,7 @@ html {
 
 body {
     font-family: 'Droid Sans';
-    font-size: 12px;
+    font-size: 13px;
     color: gray;
     background: #444;
 }
@@ -20,25 +20,51 @@ a {
 }
 
 .row:nth-child(odd) {
-    background: #333;
+    background: #3e3e3e;
 }
 
 .row:nth-child(even) {
     background: #444;
 }
 
-#nav {
-    width: 1200px;
+#content {
+    position: absolute;
+    top: 0px;
+    left: 300px;
+    right: 0px;
+    bottom: 20px;
+    overflow: none;
+    float: right;
+}
+
+#details {
+    margin-top: 20px;
+    margin-bottom: 0px;
+    position: absolute;
+    top: 300px;
+    bottom: 0px;
+    right: 0px;
+    overflow: auto;
+    width: 100%;
+    overflow: auto;
+    float: right;
+}
+
+#browse {
+    position: absolute;
+    top: 0px;
+    width: 100%;
     overflow: hidden;
     float: right;
 }
 
-#content {
-    padding-top: 20px;
-    padding-bottom: 20px;
+#content-old {
+    margin-top: 20px;
+    margin-bottom: 0px;
     position: absolute;
     top: 300px;
     bottom: 20px;
+    right: 0px;
     overflow: auto;
     width: 1200px;
     overflow: auto;
@@ -67,4 +93,8 @@ a {
     width: 100%;
     text-align: center;
     padding-bottom: 4px;
+}
+
+#nowplaying {
+
 }

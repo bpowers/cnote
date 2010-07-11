@@ -79,10 +79,7 @@ function () {
             //loadingHtml = bp.utils.applyTemplate(loadingHtml,
             //                                     options.config);
 
-	    loadingHtml += '<div id="nav">\n\n';
-	    loadingHtml += artistsHtml + '\n\n';
-	    loadingHtml += albumsHtml + '\n\n';
-	    loadingHtml += '</div>\n\n';
+	    loadingHtml += artistsHtml + albumsHtml;
             $(options.header).html(loadingHtml);
 	    $(options.header + ' .row a').bind('click', function (event) {
 		event.preventDefault();
@@ -110,6 +107,7 @@ function () {
     return {
         name: 'loading-artist',
         enter: function (options) {
+	    loadingHtml = '';
             var name = this.name;
             // pop up a loading message.
             $(options.content).html(bp.utils.LOADING_HTML);
@@ -135,7 +133,7 @@ function () {
             //loadingHtml = bp.utils.applyTemplate(loadingHtml,
             //                                     options.config);
             $(options.content).html(loadingHtml);
-	    $(options.content + '.row a').bind('click', function (event) {
+	    $(options.content + ' .row a').bind('click', function (event) {
 		event.preventDefault();
 		$('#audio').remove();
 		$('#header').append('<audio src="' + $(this).attr('href') +
