@@ -109,6 +109,13 @@ cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 */
 
 
+static void
+free_cb(const void *data, size_t datalen, void *extra)
+{
+	g_free((gpointer)data);
+}
+
+
 static inline PGresult *
 pg_exec(PGconn *conn, const char *query)
 {
@@ -186,22 +193,17 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 	char *result;
 	struct evbuffer *buf;
 
-	fprintf(stderr, "INFO: artist list\n");
+	//fprintf(stderr, "INFO: artist list\n");
 
 	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
-	fprintf(stderr, "  got query\n");
 
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
+	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
 
-	fprintf(stderr, "  sending reply...\n");	
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
-	fprintf(stderr, "  done.\n");
 	evbuffer_free(buf);
-
-	g_free(result);
 }
 
 
@@ -221,7 +223,7 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	const char *query_args[1], *query_fmt;
 	struct evbuffer *buf;
 
-	fprintf(stderr, "INFO: artist query\n");
+	//fprintf(stderr, "INFO: artist query\n");
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
@@ -283,11 +285,9 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
+	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
-
-	g_free(result);
 
 	PQclear(res);
 	PQfinish(conn);
@@ -331,18 +331,16 @@ handle_album(struct evhttp_request *req, struct ccgi_state *state)
 	evhttp_add_header(req->output_headers, "Content-Type",
 			  "application/json; charset=UTF-8");
 
-	fprintf(stderr, "INFO: album list\n");
+	//fprintf(stderr, "INFO: album list\n");
 
 	result = query_list("SELECT DISTINCT album FROM music ORDER BY album");
 
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), NULL, NULL);
+	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
 	evhttp_send_reply(req, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
-
-	g_free(result);
 }
 
 
