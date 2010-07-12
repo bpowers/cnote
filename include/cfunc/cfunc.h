@@ -36,28 +36,30 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
-struct cfunc_cons;
-
-struct cfunc_ops
-{
-  void *(*car)(struct cfunc_cons *);
-  struct cfunc_cons *(*cdr)(struct cfunc_cons *);
-};
+#define CFUNC_MAGIC (0xB0B0B0B0B)
 
 struct cfunc_cons
 {
-  struct cfunc_ops *ops;
-  void *car;
-  struct cfunc_cons *cdr;
+	uint64_t magic;
+	void *car;
+	struct cfunc_cons *cdr;
 };
 
-typedef void* (^cfunc_closure_t)(void*);
+typedef void *(^cfunc_closure_t)(void*);
 
+struct cfunc_cons *cfunc_cons_new(void *a);
+void *cfunc_car(struct cfunc_cons *coll);
+struct cfunc_cons *cfunc_cdr(struct cfunc_cons *coll);
+struct cfunc_cons *cfunc_cons(void *car, struct cfunc_cons *cdr);
+struct cfunc_cons *cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll);
+
+typedef cfunc_closure_t closure_t;
+typedef struct cfuc_cons cons_t;
 
 #ifdef __cplusplus
 }
-#endif 
+#endif
 
 #endif // __CFUNC_H__

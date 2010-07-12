@@ -82,33 +82,6 @@ static void print_version(void);
 typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
 
-/*
-static void *
-cfunc_car(struct cfunc_cons *coll)
-{
-	return coll->ops->car(coll);
-}
-
-struct cfunc_cons *
-cfunc_cdr(struct cfunc_cons *coll)
-{
-	return coll->ops->cdr(coll);
-}
-
-struct cfunc_cons *
-cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
-{
-	void *a = cfunc_car(coll);
-	struct cfunc_cons *c = coll;
-	for (; a != NULL; a = c->car, c=c->cdr)
-	{
-		f(a);
-	}
-	return 0;
-}
-*/
-
-
 // passed to evbuffer_add_reference as a function to call when the
 // buffer it points to isn't referenced anymore.
 static void
@@ -322,16 +295,13 @@ handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 
 
 static void
-handle_album(struct evhttp_request *req, struct ccgi_state *state)
+album_list(struct evhttp_request *req, struct ccgi_state *state)
 {
 	char *result;
 	struct evbuffer *buf;
 
 	if (unlikely (!state))
 		exit_msg("%s: null state", __func__);
-
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
 
 	//fprintf(stderr, "INFO: album list\n");
 
@@ -343,6 +313,119 @@ handle_album(struct evhttp_request *req, struct ccgi_state *state)
 	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
 	evhttp_send_reply(req, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
+}
+
+
+static void
+album_query(struct evhttp_request *hreq, struct ccgi_state *state,
+	     const char *artist)
+{
+	PGconn *conn;
+	PGresult *res;
+	ExecStatusType status;
+	int rows;
+	gsize len;
+	JsonGenerator *gen;
+	JsonArray *arr;
+	JsonNode *node;
+	char *result;
+	const char *query_args[1], *query_fmt;
+	struct evbuffer *buf;
+
+	//fprintf(stderr, "INFO: artist query\n");
+
+	query_fmt = "SELECT title, artist, album, track, path"
+		    "    FROM music WHERE album = $1"
+		    "    ORDER BY album, track, title";
+
+	conn = PQconnectdb(CONN_INFO);
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	// FIXME: sanitize artist
+	query_args[0] = artist;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);      
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+	rows = PQntuples(res);
+
+	arr = json_array_sized_new(rows);
+
+	for (int i = 0; i < rows; ++i) {
+		char *title, *artist, *album, *track_s, *path;
+		JsonObject *obj = json_object_new();
+
+		title = PQgetvalue(res, i, 0);
+		artist = PQgetvalue(res, i, 1);
+		album = PQgetvalue(res, i, 2);
+		track_s = PQgetvalue(res, i, 3);
+		path = PQgetvalue(res, i, 4);
+
+		json_object_set_string_member(obj, "title", title);
+		json_object_set_string_member(obj, "artist", artist);
+		json_object_set_string_member(obj, "album", album);
+		json_object_set_int_member(obj, "track", atoi(track_s));
+		json_object_set_string_member(obj, "path", path);
+
+		json_array_add_object_element(arr, obj);
+	}
+
+	node = json_node_new(JSON_NODE_ARRAY);
+	json_node_set_array(node, arr);
+	json_array_unref(arr);
+
+	gen = json_generator_new();
+	json_generator_set_root(gen, node);
+	json_node_free(node);
+
+	result = json_generator_to_data(gen, &len);
+	g_object_unref(gen);
+
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
+	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
+	evbuffer_free(buf);
+
+	PQclear(res);
+	PQfinish(conn);
+}
+
+
+
+static void
+handle_album(struct evhttp_request *req, struct ccgi_state *state)
+{
+	char *album;
+	const char *request_path;
+
+	if (unlikely (!state))
+		exit_msg("%s: null state", __func__);
+
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
+
+	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
+
+	if (!request_path || !strcmp(request_path, "/")) {
+		album_list(req, state);
+	}
+	else {
+		album = g_uri_unescape_string(&request_path[1], NULL);
+		album_query(req, state, album);
+		free(album);
+	}
 }
 
 

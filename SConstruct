@@ -3,6 +3,7 @@ from sys import stderr
 
 env = Environment(CC='clang',
                   CCFLAGS='-fcolor-diagnostics -fblocks -O0 -g -Wall',
+                  LINKFLAGS='-lBlocksRuntime',
                   CPPPATH='include')
 
 def CheckPkgConfig(context, version):
@@ -70,3 +71,4 @@ env.Prepend(LIBS='cfunc')
 
 env.Program('src/ctagdump', Glob('src/ctagdump.c'))
 env.Program('src/cmusic', Glob('src/cmusic.c'))
+env.Program('src/ctest', Glob('src/ctest.c'))
