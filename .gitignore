@@ -2,6 +2,8 @@
 *~
 src/ctagdump
 src/cmusic
+src/ctest
 *.o
 *.a
 config.log
+
