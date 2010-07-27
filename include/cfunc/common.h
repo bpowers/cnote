@@ -32,6 +32,10 @@ extern const char *program_name;
 void *xmalloc0(size_t size);
 void *xmalloc(size_t size);
 
+// passed to evbuffer_add_reference as a function to call when the
+// buffer it points to isn't referenced anymore.
+void free_cb(const void *data, size_t datalen, void *extra);
+
 // calls perror with msg and exits, indicating failure
 void exit_perr(const char *msg_fmt, ...);
 // prints msg to stderr and exits, indicating failure

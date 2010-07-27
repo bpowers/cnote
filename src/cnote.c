@@ -53,7 +53,7 @@
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
-static const char CONN_INFO[] = "dbname = cnote";
+static const char CONN_INFO[] = "dbname = cmusic";
 
 // should be stuck into a config.h eventually
 const char CANONICAL_NAME[] = "cnote";
@@ -75,53 +75,77 @@ static const struct option longopts[] =
 	{NULL, 0, NULL, 0}
 };
 
+// forward declarations
 static void print_help(void);
 static void print_version(void);
+static inline PGresult *pg_exec(PGconn *conn, const char *query);
+static void artist_list(struct evhttp_request *hreq, struct ccgi_state *state);
+static void artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
+			 const char *artist);
+static void album_list(struct evhttp_request *hreq, struct ccgi_state *state);
+static void album_query(struct evhttp_request *hreq, struct ccgi_state *state,
+			const char *artist);
+static inline char *json_array_to_string(JsonArray *arr);
 
-
+// callback typedef
 typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
 
-// passed to evbuffer_add_reference as a function to call when the
-// buffer it points to isn't referenced anymore.
 static void
-free_cb(const void *data, size_t datalen, void *extra)
+handle_album(struct evhttp_request *req, struct ccgi_state *state)
 {
-	g_free((gpointer)data);
-}
+	char *album;
+	const char *request_path;
 
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
 
-static inline PGresult *
-pg_exec(PGconn *conn, const char *query)
-{
-	PGresult *res;
-	ExecStatusType status;
+	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
 
-	res = PQexec(conn, query);
-	status = PQresultStatus(res);
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, "'%s' command failed (%d): %s", query,
-			status, PQerrorMessage(conn));
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("");
+	if (!request_path || !strcmp(request_path, "/")) {
+		album_list(req, state);
 	}
-
-	return res;
+	else {
+		album = g_uri_unescape_string(&request_path[1], NULL);
+		album_query(req, state, album);
+		free(album);
+	}
 }
 
 
+static void
+handle_artist(struct evhttp_request *req, struct ccgi_state *state)
+{
+	char *artist;
+	const char*request_path;
+
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
+
+	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
+
+	if (!request_path || !strcmp(request_path, "/")) {
+		artist_list(req, state);
+	}
+	else {
+		artist = g_uri_unescape_string(&request_path[1], NULL);
+		artist_query(req, state, artist);
+		free(artist);
+	}
+}
+
+
+// returns a string containing a JSON representation of the data
+// returned by the particular query passed in.  In this case, its
+// always a (JSON) list of (quoted) strings.  Its used by both the
+// artist_list and album_list functions.
 static char *
 query_list(const char *query_fmt)
 {
 	PGconn *conn;
 	PGresult *res;
 	int rows;
-	gsize len;
-	JsonGenerator *gen;
 	JsonArray *arr;
-	JsonNode *node;
 	char *result;
 
 	conn = PQconnectdb(CONN_INFO);
@@ -134,7 +158,6 @@ query_list(const char *query_fmt)
 	rows = PQntuples(res);
 
 	arr = json_array_sized_new(rows);
-
 	for (int i = 0; i < rows; ++i) {
 		JsonNode *n;
 		char *val;
@@ -144,16 +167,8 @@ query_list(const char *query_fmt)
 		json_array_add_element(arr, n);
 	}
 
-	node = json_node_new(JSON_NODE_ARRAY);
-	json_node_set_array(node, arr);
+	result = json_array_to_string(arr);
 	json_array_unref(arr);
-
-	gen = json_generator_new();
-	json_generator_set_root(gen, node);
-	json_node_free(node);
-
-	result = json_generator_to_data(gen, &len);
-	g_object_unref(gen);
 
 	PQclear(res);
 	PQfinish(conn);
@@ -167,8 +182,6 @@ artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 {
 	char *result;
 	struct evbuffer *buf;
-
-	//fprintf(stderr, "INFO: artist list\n");
 
 	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
 
@@ -190,15 +203,10 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	PGresult *res;
 	ExecStatusType status;
 	int rows;
-	gsize len;
-	JsonGenerator *gen;
 	JsonArray *arr;
-	JsonNode *node;
 	char *result;
 	const char *query_args[1], *query_fmt;
 	struct evbuffer *buf;
-
-	//fprintf(stderr, "INFO: artist query\n");
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
@@ -210,7 +218,7 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
-	// FIXME: sanitize artist
+	// FIXME: sanitize artist (little bobby tables...)
 	query_args[0] = artist;
 	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
 			   NULL, 0);
@@ -225,8 +233,8 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	}
 	rows = PQntuples(res);
 
+	// build a JSON array out of the result
 	arr = json_array_sized_new(rows);
-
 	for (int i = 0; i < rows; ++i) {
 		char *title, *artist, *album, *track_s, *path;
 		JsonObject *obj = json_object_new();
@@ -246,16 +254,8 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		json_array_add_object_element(arr, obj);
 	}
 
-	node = json_node_new(JSON_NODE_ARRAY);
-	json_node_set_array(node, arr);
+	result = json_array_to_string(arr);
 	json_array_unref(arr);
-
-	gen = json_generator_new();
-	json_generator_set_root(gen, node);
-	json_node_free(node);
-
-	result = json_generator_to_data(gen, &len);
-	g_object_unref(gen);
 
 	buf = evbuffer_new();
 	if (!buf)
@@ -266,31 +266,6 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 
 	PQclear(res);
 	PQfinish(conn);
-}
-
-
-static void
-handle_artist(struct evhttp_request *req, struct ccgi_state *state)
-{
-	char *artist;
-	const char*request_path;
-
-	if (unlikely (!state))
-		exit_msg("%s: null state", __func__);
-
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
-
-	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
-
-	if (!request_path || !strcmp(request_path, "/")) {
-		artist_list(req, state);
-	}
-	else {
-		artist = g_uri_unescape_string(&request_path[1], NULL);
-		artist_query(req, state, artist);
-		free(artist);
-	}
 }
 
 
@@ -324,10 +299,7 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	PGresult *res;
 	ExecStatusType status;
 	int rows;
-	gsize len;
-	JsonGenerator *gen;
 	JsonArray *arr;
-	JsonNode *node;
 	char *result;
 	const char *query_args[1], *query_fmt;
 	struct evbuffer *buf;
@@ -380,16 +352,8 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		json_array_add_object_element(arr, obj);
 	}
 
-	node = json_node_new(JSON_NODE_ARRAY);
-	json_node_set_array(node, arr);
+	result = json_array_to_string(arr);
 	json_array_unref(arr);
-
-	gen = json_generator_new();
-	json_generator_set_root(gen, node);
-	json_node_free(node);
-
-	result = json_generator_to_data(gen, &len);
-	g_object_unref(gen);
 
 	buf = evbuffer_new();
 	if (!buf)
@@ -403,37 +367,14 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 }
 
 
-
-static void
-handle_album(struct evhttp_request *req, struct ccgi_state *state)
-{
-	char *album;
-	const char *request_path;
-
-	if (unlikely (!state))
-		exit_msg("%s: null state", __func__);
-
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
-
-	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
-
-	if (!request_path || !strcmp(request_path, "/")) {
-		album_list(req, state);
-	}
-	else {
-		album = g_uri_unescape_string(&request_path[1], NULL);
-		album_query(req, state, album);
-		free(album);
-	}
-}
-
-
 static void
 handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 {
 	const char*request_path;
 	struct evbuffer *buf;
+
+	if (unlikely (!state))
+		exit_msg("%s: null state", __func__);
 
 	buf = evbuffer_new();
 	if (!buf)
@@ -509,6 +450,7 @@ main(int argc, char *const argv[])
 	if (err)
 		exit_msg("main: couldn't bind to %s:%d", addr, port);
 
+	// here is where we set the handlers for specific requests
 	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
 	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
 	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_album, &state);
@@ -559,4 +501,47 @@ Copyright (C) %s Bobby Powers.\n\
 License GPLv2+: GNU GPL version 2 or later <http://gnu.org/licenses/gpl.html>\n\
 This is free software: you are free to change and redistribute it.\n\
 There is NO WARRANTY, to the extent permitted by law.\n\n", YEAR);
+}
+
+
+static inline PGresult *
+pg_exec(PGconn *conn, const char *query)
+{
+	PGresult *res;
+	ExecStatusType status;
+
+	res = PQexec(conn, query);
+	status = PQresultStatus(res);
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	return res;
+}
+
+
+static inline char *
+json_array_to_string(JsonArray *arr)
+{
+	gsize len;
+	JsonGenerator *gen;
+	JsonNode *node;
+	char *result;
+
+	node = json_node_new(JSON_NODE_ARRAY);
+	json_node_set_array(node, arr);
+
+	gen = json_generator_new();
+	json_generator_set_root(gen, node);
+	json_node_free(node);
+
+	result = json_generator_to_data(gen, &len);
+	g_object_unref(gen);
+
+	return result;
 }
