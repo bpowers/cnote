@@ -1,4 +1,4 @@
-/*===--- cnote.c - RESTful music information api -----------------------===//
+/*===--- cnote.c - RESTful music information api ------------------------===//
  *
  * Copyright 2010 Bobby Powers
  *
@@ -86,22 +86,32 @@ static void album_list(struct evhttp_request *hreq, struct ccgi_state *state);
 static void album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 			const char *artist);
 static inline char *json_array_to_string(JsonArray *arr);
+static inline void set_content_type_json(struct evhttp_request *req);
 
 // callback typedef
 typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
 
+//===--- this is where the magic starts... ------------------------------===//
+
+
+// called when we get a request like /albums or /album/Album Of The Year
 static void
 handle_album(struct evhttp_request *req, struct ccgi_state *state)
 {
 	char *album;
 	const char *request_path;
 
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
+	// we always return JSON
+	set_content_type_json(req);
 
+	// the URI always starts with a /, so check for another one.
+	// if there IS another '/', it means we have a request for a
+	// particular artist.
 	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
 
+	// read as: if we don't have a request path or if the request
+	// path is (exactly) the string "/", list the albums, else...
 	if (!request_path || !strcmp(request_path, "/")) {
 		album_list(req, state);
 	}
@@ -113,14 +123,14 @@ handle_album(struct evhttp_request *req, struct ccgi_state *state)
 }
 
 
+// called when we get a request like /artist or /artist/Cursive
 static void
 handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 {
 	char *artist;
 	const char*request_path;
 
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
+	set_content_type_json(req);
 
 	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
 
@@ -373,15 +383,11 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 	const char*request_path;
 	struct evbuffer *buf;
 
-	if (unlikely (!state))
-		exit_msg("%s: null state", __func__);
-
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
 
-	evhttp_add_header(req->output_headers, "Content-Type",
-			  "application/json; charset=UTF-8");
+	set_content_type_json(req);
 
 	request_path = evhttp_request_get_uri(req);
 
@@ -544,4 +550,12 @@ json_array_to_string(JsonArray *arr)
 	g_object_unref(gen);
 
 	return result;
+}
+
+
+static inline void
+set_content_type_json(struct evhttp_request *req)
+{
+	evhttp_add_header(req->output_headers, "Content-Type",
+			  "application/json; charset=UTF-8");
 }
