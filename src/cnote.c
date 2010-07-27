@@ -2,24 +2,23 @@
  *
  * Copyright 2010 Bobby Powers
  *
- * This file is part of cfunc.
+ * This file is part of cnote.
  *
- * cfunc is free software: you can redistribute it and/or modify it
+ * cnote is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation, either version 3 of the License, or (at
- * your option) any later version.
+ * Free Software Foundation, version 3 of the License.
  *
- * cfunc is distributed in the hope that it will be useful, but WITHOUT
+ * cnote is distributed in the hope that it will be useful, but WITHOUT
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with cfunc.  If not, see <http://www.gnu.org/licenses/>.
+ * along with cnote.  If not, see <http://www.gnu.org/licenses/>.
  *
  *===--------------------------------------------------------------------===//
  *
- * The main dispatch for the RESTful API
+ * The main dispatch for our RESTful API
  *
  *===--------------------------------------------------------------------===//
  */
@@ -30,16 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
 #include <signal.h>
 #include <unistd.h>
 #include <getopt.h>
-
-#include <pthread.h>
-#include <time.h>
 
 #include <json-glib/json-glib.h>
 
@@ -55,7 +47,7 @@ static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "dbname = cmusic";
 
-// should be stuck into a config.h eventually
+// TODO: should be stuck into a config.h eventually
 const char CANONICAL_NAME[] = "cnote";
 const char PACKAGE[] = "cnote";
 const char VERSION[] = "0.0.1";
@@ -79,9 +71,12 @@ static const struct option longopts[] =
 static void print_help(void);
 static void print_version(void);
 static inline PGresult *pg_exec(PGconn *conn, const char *query);
+static void handle_generic(struct evhttp_request *req, struct ccgi_state *state);
+static void handle_artist(struct evhttp_request *req, struct ccgi_state *state);
 static void artist_list(struct evhttp_request *hreq, struct ccgi_state *state);
 static void artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 			 const char *artist);
+static void handle_album(struct evhttp_request *req, struct ccgi_state *state);
 static void album_list(struct evhttp_request *hreq, struct ccgi_state *state);
 static void album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 			const char *artist);
@@ -93,6 +88,71 @@ typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
 
 //===--- this is where the magic starts... ------------------------------===//
+int
+main(int argc, char *const argv[])
+{
+	int optc, err;
+	uint16_t port;
+	const char *addr;
+	struct ccgi_state state;
+
+	program_name = argv[0];
+	addr = DEFAULT_ADDR;
+	port = DEFAULT_PORT;
+
+	// process arguments from the command line
+	while ((optc = getopt_long(argc, argv,
+				   "a:p:hv", longopts, NULL)) != -1) {
+		switch (optc) {
+		// GNU standards have --help and --version exit immediately.
+		case 'v':
+			print_version();
+			return 0;
+		case 'h':
+			print_help();
+			return 0;
+		case 'a':
+			addr = (const char *)optarg;
+			break;
+		case 'p':
+			// FIXME: deal with errorz
+			port = atoi(optarg);
+			break;
+		default:
+			fprintf(stderr, "unknown option '%c'", optc);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	// our JSON library requires the glib type system to be initialized
+	g_type_init();
+
+	state.ev_base = event_base_new();
+	if (!state.ev_base)
+		exit_perr("main: event_base_new");
+
+	state.ev_http = evhttp_new(state.ev_base);
+	if (!state.ev_http)
+		exit_perr("main: evhttp_new");
+
+	err = evhttp_bind_socket(state.ev_http, addr, port);
+	if (err)
+		exit_msg("main: couldn't bind to %s:%d", addr, port);
+
+	// set the handlers for the api requests we care about, and set
+	// a generic error handler for everything else
+	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
+	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
+	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_album, &state);
+
+	fprintf(stderr, "%s: initialized and waiting for connections\n",
+		program_name);
+
+	// the main event loop
+	event_base_dispatch(state.ev_base);
+
+	return 0;
+}
 
 
 // called when we get a request like /albums or /album/Album Of The Year
@@ -142,6 +202,26 @@ handle_artist(struct evhttp_request *req, struct ccgi_state *state)
 		artist_query(req, state, artist);
 		free(artist);
 	}
+}
+
+
+// called when we don't have an artist or album API call - a fallthrough
+// error handler in a sense.
+static void
+handle_generic(struct evhttp_request *req, struct ccgi_state *state)
+{
+	struct evbuffer *buf;
+
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+
+	set_content_type_json(req);
+
+	evbuffer_add_printf(buf, "\"bad request path '%s'\"",
+			    evhttp_request_get_uri(req));
+	evhttp_send_reply(req, HTTP_OK, "not found", buf);
+	evbuffer_free(buf);
 }
 
 
@@ -374,100 +454,6 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 
 	PQclear(res);
 	PQfinish(conn);
-}
-
-
-static void
-handle_generic(struct evhttp_request *req, struct ccgi_state *state)
-{
-	const char*request_path;
-	struct evbuffer *buf;
-
-	buf = evbuffer_new();
-	if (!buf)
-		exit_perr("%s: evbuffer_new", __func__);
-
-	set_content_type_json(req);
-
-	request_path = evhttp_request_get_uri(req);
-
-	evbuffer_add_printf(buf, "\"bad request path '%s'\"", request_path);
-	evhttp_send_reply(req, HTTP_OK, "not found", buf);
-	evbuffer_free(buf);
-}
-
-
-int
-main(int argc, char *const argv[])
-{
-	int optc, err;
-	uint16_t port;
-	const char *addr;
-	struct ccgi_state state;
-	struct sigaction sa = {.sa_handler = SIG_IGN};
-
-	/* Make stderr line buffered - we only use it for debug info */
-	setvbuf(stderr, NULL, _IOLBF, 0);
-
-	program_name = argv[0];
-	addr = DEFAULT_ADDR;
-	port = DEFAULT_PORT;
-
-	// default
-	state.mount_point = "/api";
-
-	while ((optc = getopt_long(argc, argv,
-				   "a:p:hv", longopts, NULL)) != -1) {
-		switch (optc) {
-		// GNU standards have --help and --version exit immediately.
-		case 'v':
-			print_version();
-			return 0;
-		case 'h':
-			print_help();
-			return 0;
-		case 'a':
-			addr = (const char *)optarg;
-			break;
-		case 'p':
-			// FIXME: deal with errorz
-			port = atoi(optarg);
-			break;
-		default:
-			fprintf(stderr, "unknown option '%c'", optc);
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	g_type_init();
-
-	// automatically reap zombies
-	sigaction(SIGCHLD, &sa, NULL);
-
-	state.ev_base = event_base_new();
-	if (!state.ev_base)
-		exit_perr("main: event_base_new");
-
-	state.ev_http = evhttp_new(state.ev_base);
-	if (!state.ev_http)
-		exit_perr("main: evhttp_new");
-
-	err = evhttp_bind_socket(state.ev_http, addr, port);
-	if (err)
-		exit_msg("main: couldn't bind to %s:%d", addr, port);
-
-	// here is where we set the handlers for specific requests
-	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
-	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
-	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_album, &state);
-
-	fprintf(stderr, "%s: initialized and waiting for connections\n",
-		program_name);
-
-	// the main event loop
-	event_base_dispatch(state.ev_base);
-
-	return 0;
 }
 
 
