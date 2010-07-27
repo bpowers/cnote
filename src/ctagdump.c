@@ -168,7 +168,7 @@ main(int argc, char *const argv[])
 	int optc;
 	PGconn *conn;
 	const char *base_path = NULL;
-	const char *conn_info = "dbname = cmusic";
+	const char *conn_info = "dbname = cnote";
 
 	/* Make stderr line buffered - we only use it for debug info */
 	setvbuf(stderr, NULL, _IOLBF, 0);

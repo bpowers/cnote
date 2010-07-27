@@ -1,4 +1,4 @@
-/*===--- cmusic.c - RESTful music information api -----------------------===//
+/*===--- cnote.c - RESTful music information api -----------------------===//
  *
  * Copyright 2010 Bobby Powers
  *
@@ -53,11 +53,11 @@
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
-static const char CONN_INFO[] = "dbname = cmusic";
+static const char CONN_INFO[] = "dbname = cnote";
 
 // should be stuck into a config.h eventually
-const char CANONICAL_NAME[] = "cmusic";
-const char PACKAGE[] = "cmusic";
+const char CANONICAL_NAME[] = "cnote";
+const char PACKAGE[] = "cnote";
 const char VERSION[] = "0.0.1";
 const char YEAR[] = "2010";
 const char PACKAGE_BUGREPORT[] = "bobbypowers@gmail.com";
