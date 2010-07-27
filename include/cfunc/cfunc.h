@@ -40,18 +40,26 @@ extern "C" {
 
 #define CFUNC_MAGIC (0xB0B0B0B0B)
 
-struct cfunc_cons
-{
-	uint64_t magic;
-	void *car;
-	struct cfunc_cons *cdr;
-};
 
 typedef void *(^cfunc_closure_t)(void*);
 
+struct cfunc_cons
+{
+	uint64_t magic;
+
+	void *(^car)(void);
+	struct cfunc_cons *(^cdr)(void);
+	struct cfunc_cons *(^cons)(void *);
+	struct cfunc_cons *(^map)(cfunc_closure_t);
+	void (^ref)(void);
+	void (^unref)(void);
+
+	void *_car;
+	struct cfunc_cons *_cdr;
+	uint32_t _count;
+};
+
 struct cfunc_cons *cfunc_cons_new(void *a);
-void *cfunc_car(struct cfunc_cons *coll);
-struct cfunc_cons *cfunc_cdr(struct cfunc_cons *coll);
 struct cfunc_cons *cfunc_cons(void *car, struct cfunc_cons *cdr);
 struct cfunc_cons *cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll);
 

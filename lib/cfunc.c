@@ -26,66 +26,96 @@
 #include <cfunc/cfunc.h>
 #include <cfunc/common.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#define check(coll)							\
-	if (unlikely(!coll)) {						\
-		fprintf(stderr, "%s: null collection.\n", __func__);	\
-		return NULL;						\
-	}
+#define check(coll)                                                     \
+        if (unlikely(!coll)) {                                          \
+                fprintf(stderr, "%s: null collection.\n", __func__);    \
+                return (struct cfunc_cons *)NULL;                       \
+        }
 /*
-	}								\
-	if (unlikely(coll->magic != CFUNC_MAGIC)) {			\
-		fprintf(stderr, "%s: not a cons.\n", __func__);		\
-		return NULL;						\
+  }                                                             \
+  if (unlikely(coll->magic != CFUNC_MAGIC)) {                   \
+  fprintf(stderr, "%s: not a cons.\n", __func__);               \
+  return NULL;                                          \
 */
 
 struct cfunc_cons *
 cfunc_cons_new(void *a)
 {
-	struct cfunc_cons *ret;
-	ret = xmalloc(sizeof(*ret));
-	ret->magic = CFUNC_MAGIC;
-	ret->car = a;
-	ret->cdr = NULL;
+        struct cfunc_cons *this;
+        this = xmalloc(sizeof(*this));
+        this->magic = CFUNC_MAGIC;
+        this->_car = a;
+        this->_cdr = NULL;
+	this->_count = 1;
 
-	return ret;
+        this->car = Block_copy(^(void) {
+			return this->_car;
+		});
+
+        this->cdr = Block_copy(^(void) {
+			return this->_cdr;
+		});
+
+        this->cons = Block_copy(^(void *coll) {
+			return cfunc_cons(coll, this);
+		});
+
+        this->map = Block_copy(^(cfunc_closure_t f) {
+			return cfunc_map(f, this);
+		});
+
+	this->ref = Block_copy(^(void) {
+			// TODO: thread safety
+			this->_count++;
+		});
+
+	this->unref = Block_copy(^(void) {
+			// TODO: thread safety
+			this->_count--;
+			if (this->_count >= 0) {
+				if (this->_cdr)
+					this->_cdr->unref();
+				Block_release(this->car);
+				Block_release(this->cdr);
+				Block_release(this->cons);
+				Block_release(this->map);
+				Block_release(this->ref);
+				Block_release(this->unref);
+				free(this);
+			}
+		});
+
+        return this;
 }
 
 
 struct cfunc_cons *
 cfunc_cons(void *a, struct cfunc_cons *b)
 {
-	struct cfunc_cons *ret;
-	ret = cfunc_cons_new(a);
-	ret->cdr = b;
-	return ret;
-}
-
-
-void *
-cfunc_car(struct cfunc_cons *coll)
-{
-	check(coll);
-	
-	return coll->car;
-}
-
-struct cfunc_cons *
-cfunc_cdr(struct cfunc_cons *coll)
-{
-	check(coll);
-
-	return coll->cdr;
+        struct cfunc_cons *ret;
+        ret = cfunc_cons_new(a);
+        ret->_cdr = b;
+        return ret;
 }
 
 struct cfunc_cons *
 cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
 {
-	void *a;
-	while ((a = cfunc_car(coll)))
-	{
-		f(a);
-		coll = cfunc_cdr(coll);
-	}
-	return 0;
+	struct cfunc_cons *orig = coll;
+        while (coll)
+        {
+		void *a = coll->car();
+		if (!a)
+			break;
+
+                f(a);
+
+                coll = coll->cdr();
+        }
+
+	orig->unref();
+
+        return 0;
 }

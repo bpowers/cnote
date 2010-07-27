@@ -9,13 +9,12 @@ main(int argc, const char *argv[])
 	char *x = "x";
 	char *y = "y";
 
-	struct cfunc_cons *c1 = cfunc_cons(x, cfunc_cons(y, NULL));
+	struct cfunc_cons *c1 = cfunc_cons_new(y)->cons(x);
 
-	cfunc_map(^(void *a) {
-			char *str = a;
+	c1->map((cfunc_closure_t)^(char *str) {
 			fprintf(stdout, "map: %s\n", str);
 			return NULL;
-		}, c1);
+		});
 	
 
 	return 0;
