@@ -23,6 +23,7 @@
  *
  *===--------------------------------------------------------------------===//
  */
+#define CFUNC_CLOBBER
 #include <cfunc/cfunc.h>
 #include <cfunc/common.h>
 #include <stdio.h>
@@ -40,31 +41,17 @@
   return NULL;                                          \
 */
 
-struct cfunc_cons *
+
+
+static struct cfunc_cons *
 cfunc_cons_new(void *a)
 {
         struct cfunc_cons *this;
         this = xmalloc(sizeof(*this));
         this->magic = CFUNC_MAGIC;
-        this->_car = a;
-        this->_cdr = NULL;
+        this->car = a;
+        this->cdr = NULL;
 	this->_count = 1;
-
-        this->car = Block_copy(^(void) {
-			return this->_car;
-		});
-
-        this->cdr = Block_copy(^(void) {
-			return this->_cdr;
-		});
-
-        this->cons = Block_copy(^(void *coll) {
-			return cfunc_cons(coll, this);
-		});
-
-        this->map = Block_copy(^(cfunc_closure_t f) {
-			return cfunc_map(f, this);
-		});
 
 	this->ref = Block_copy(^(void) {
 			// TODO: thread safety
@@ -75,12 +62,8 @@ cfunc_cons_new(void *a)
 			// TODO: thread safety
 			this->_count--;
 			if (this->_count >= 0) {
-				if (this->_cdr)
-					this->_cdr->unref();
-				Block_release(this->car);
-				Block_release(this->cdr);
-				Block_release(this->cons);
-				Block_release(this->map);
+				if (this->cdr)
+					this->cdr->unref();
 				Block_release(this->ref);
 				Block_release(this->unref);
 				free(this);
@@ -92,30 +75,59 @@ cfunc_cons_new(void *a)
 
 
 struct cfunc_cons *
-cfunc_cons(void *a, struct cfunc_cons *b)
+cons(void *a, struct cfunc_cons *b)
 {
         struct cfunc_cons *ret;
         ret = cfunc_cons_new(a);
-        ret->_cdr = b;
+        ret->cdr = b;
         return ret;
 }
 
 struct cfunc_cons *
-cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll)
+map(cfunc_closure_t f, struct cfunc_cons *coll)
 {
 	struct cfunc_cons *orig = coll;
-        while (coll)
-        {
-		void *a = coll->car();
+        while (coll) {
+		void *a = coll->car;
 		if (!a)
 			break;
 
                 f(a);
 
-                coll = coll->cdr();
+                coll = coll->cdr;
         }
 
 	orig->unref();
 
         return 0;
+}
+
+
+struct cfunc_cons *
+reverse(struct cfunc_cons *coll)
+{
+	struct cfunc_cons *ret = NULL;
+	for (struct cfunc_cons *sexp = coll; sexp; sexp = sexp->cdr)
+		ret = cons(sexp->car, ret);
+	coll->unref();
+	return ret;
+}
+
+
+struct cfunc_cons *
+list(void *first, ...)
+{
+	va_list ap;
+	struct cfunc_cons *ret;
+
+	ret = cons(first, NULL);
+
+	va_start(ap, first);
+	while (*(long *)first) {
+		ret = cons(va_arg(ap, void *), ret);
+		first++;
+	}
+	va_end(ap);
+
+	return reverse(ret);
 }

@@ -71,6 +71,7 @@ static const struct option longopts[] =
 static void print_help(void);
 static void print_version(void);
 static inline PGresult *pg_exec(PGconn *conn, const char *query);
+static char *query_list(const char *query_fmt);
 static void handle_generic(struct evhttp_request *req, struct ccgi_state *state);
 static void handle_artist(struct evhttp_request *req, struct ccgi_state *state);
 static void artist_list(struct evhttp_request *hreq, struct ccgi_state *state);
@@ -222,48 +223,6 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 			    evhttp_request_get_uri(req));
 	evhttp_send_reply(req, HTTP_OK, "not found", buf);
 	evbuffer_free(buf);
-}
-
-
-// returns a string containing a JSON representation of the data
-// returned by the particular query passed in.  In this case, its
-// always a (JSON) list of (quoted) strings.  Its used by both the
-// artist_list and album_list functions.
-static char *
-query_list(const char *query_fmt)
-{
-	PGconn *conn;
-	PGresult *res;
-	int rows;
-	JsonArray *arr;
-	char *result;
-
-	conn = PQconnectdb(CONN_INFO);
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-
-	res = pg_exec(conn, query_fmt);
-	rows = PQntuples(res);
-
-	arr = json_array_sized_new(rows);
-	for (int i = 0; i < rows; ++i) {
-		JsonNode *n;
-		char *val;
-		val = PQgetvalue(res, i, 0);
-		n = json_node_new(JSON_NODE_VALUE);
-		json_node_set_string(n, val);
-		json_array_add_element(arr, n);
-	}
-
-	result = json_array_to_string(arr);
-	json_array_unref(arr);
-
-	PQclear(res);
-	PQfinish(conn);
-
-	return result;
 }
 
 
@@ -496,6 +455,7 @@ There is NO WARRANTY, to the extent permitted by law.\n\n", YEAR);
 }
 
 
+// wraps simple postgres queries from static strings
 static inline PGresult *
 pg_exec(PGconn *conn, const char *query)
 {
@@ -544,4 +504,46 @@ set_content_type_json(struct evhttp_request *req)
 {
 	evhttp_add_header(req->output_headers, "Content-Type",
 			  "application/json; charset=UTF-8");
+}
+
+
+// returns a string containing a JSON representation of the data
+// returned by the particular query passed in.  In this case, its
+// always a (JSON) list of (quoted) strings.  Its used by both the
+// artist_list and album_list functions.
+static char *
+query_list(const char *query_fmt)
+{
+	PGconn *conn;
+	PGresult *res;
+	int rows;
+	JsonArray *arr;
+	char *result;
+
+	conn = PQconnectdb(CONN_INFO);
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	res = pg_exec(conn, query_fmt);
+	rows = PQntuples(res);
+
+	arr = json_array_sized_new(rows);
+	for (int i = 0; i < rows; ++i) {
+		JsonNode *n;
+		char *val;
+		val = PQgetvalue(res, i, 0);
+		n = json_node_new(JSON_NODE_VALUE);
+		json_node_set_string(n, val);
+		json_array_add_element(arr, n);
+	}
+
+	result = json_array_to_string(arr);
+	json_array_unref(arr);
+
+	PQclear(res);
+	PQfinish(conn);
+
+	return result;
 }

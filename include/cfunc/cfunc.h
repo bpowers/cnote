@@ -43,28 +43,25 @@ extern "C" {
 
 typedef void *(^cfunc_closure_t)(void*);
 
-struct cfunc_cons
-{
+struct cfunc_cons {
 	uint64_t magic;
 
-	void *(^car)(void);
-	struct cfunc_cons *(^cdr)(void);
-	struct cfunc_cons *(^cons)(void *);
-	struct cfunc_cons *(^map)(cfunc_closure_t);
 	void (^ref)(void);
 	void (^unref)(void);
 
-	void *_car;
-	struct cfunc_cons *_cdr;
+	void *car;
+	struct cfunc_cons *cdr;
 	uint32_t _count;
 };
 
-struct cfunc_cons *cfunc_cons_new(void *a);
-struct cfunc_cons *cfunc_cons(void *car, struct cfunc_cons *cdr);
-struct cfunc_cons *cfunc_map(cfunc_closure_t f, struct cfunc_cons *coll);
+struct cfunc_cons *cons(void *car, struct cfunc_cons *cdr);
+struct cfunc_cons *map(cfunc_closure_t f, struct cfunc_cons *coll);
+struct cfunc_cons *list(void *first, ...);
+struct cfunc_cons *reverse(struct cfunc_cons *coll);
 
 typedef cfunc_closure_t closure_t;
 typedef struct cfuc_cons cons_t;
+
 
 #ifdef __cplusplus
 }
