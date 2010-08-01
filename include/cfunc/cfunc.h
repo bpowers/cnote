@@ -56,7 +56,8 @@ struct cfunc_cons {
 
 struct cfunc_cons *cons(void *car, struct cfunc_cons *cdr);
 struct cfunc_cons *map(cfunc_closure_t f, struct cfunc_cons *coll);
-struct cfunc_cons *list(void *first, ...);
+#define list(first, ...) _list(first, ##__VA_ARGS__, NULL)
+struct cfunc_cons *_list(void *first, ...);
 struct cfunc_cons *reverse(struct cfunc_cons *coll);
 
 typedef cfunc_closure_t closure_t;

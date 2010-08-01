@@ -7,7 +7,9 @@
 int
 main(int argc, const char *argv[])
 {
-	struct cfunc_cons *c1 = list(x, "y");
+	char *x = "x";
+
+	struct cfunc_cons *c1 = cons("z", list("x", "y"));
 
 	map((cfunc_closure_t)^(char *str) {
 			fprintf(stdout, "map: %s\n", str);

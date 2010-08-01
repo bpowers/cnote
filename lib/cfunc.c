@@ -115,7 +115,7 @@ reverse(struct cfunc_cons *coll)
 
 
 struct cfunc_cons *
-list(void *first, ...)
+_list(void *first, ...)
 {
 	va_list ap;
 	struct cfunc_cons *ret;
@@ -124,7 +124,8 @@ list(void *first, ...)
 
 	va_start(ap, first);
 	while (*(long *)first) {
-		ret = cons(va_arg(ap, void *), ret);
+		void *next = va_arg(ap, void *);
+		ret = cons(next, ret);
 		first++;
 	}
 	va_end(ap);
