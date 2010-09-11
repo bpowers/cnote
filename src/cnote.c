@@ -97,6 +97,8 @@ main(int argc, char *const argv[])
 	const char *addr;
 	struct ccgi_state state;
 
+	ccgi_state_init(&state);
+
 	program_name = argv[0];
 	addr = DEFAULT_ADDR;
 	port = DEFAULT_PORT;
@@ -229,15 +231,16 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 static void
 artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
 {
-	char *result;
 	struct evbuffer *buf;
 
-	result = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
+	if (!state->artist_list)
+		state->artist_list = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
 
 	buf = evbuffer_new();
 	if (!buf)
 		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
+	evbuffer_add_reference(buf, state->artist_list,
+			       strlen(state->artist_list), NULL, NULL);
 
 	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);

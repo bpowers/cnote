@@ -1,7 +1,7 @@
 .scons*
 *~
 src/ctagdump
-src/cmusic
+src/cnote
 src/ctest
 *.o
 *.a

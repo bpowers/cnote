@@ -49,6 +49,10 @@ struct ccgi_state {
 	const char *mount_point; // not currently used
 	struct evhttp *ev_http;
 	struct event_base *ev_base;
+	const char *artist_list;
+	const char *album_list;
 };
+
+void ccgi_state_init(struct ccgi_state *state);
 
 #endif // _COMMON_H_

@@ -159,8 +159,15 @@ sha256_hex_file(const char *path, size_t len)
 	return ret;
 }
 
+
 void
 free_cb(const void *data, size_t datalen, void *extra)
 {
 	g_free((gpointer)data);
+}
+
+
+void ccgi_state_init(struct ccgi_state *state)
+{
+	memset(state, 0, sizeof(*state));
 }
