@@ -43,8 +43,8 @@
 
 #include <taglib/tag_c.h>
 
-#include <postgresql/libpq-fe.h>
-
+//#include <postgresql/libpq-fe.h>
+#include <libpq-fe.h>
 
 static const char DEFAULT_PORT[] = "1969";
 static const char DEFAULT_ADDR[] = "localhost";
@@ -168,7 +168,7 @@ main(int argc, char *const argv[])
 	int optc;
 	PGconn *conn;
 	const char *base_path = NULL;
-	const char *conn_info = "dbname = cnote";
+	const char *conn_info = "dbname = cmusic";
 
 	/* Make stderr line buffered - we only use it for debug info */
 	setvbuf(stderr, NULL, _IOLBF, 0);

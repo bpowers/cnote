@@ -33,6 +33,7 @@
 #include <openssl/sha.h>
 
 #include <event2/event.h>
+#include <glib.h>
 
 
 // backlog arg for listen(2); max clients to keep in queue

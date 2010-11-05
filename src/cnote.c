@@ -51,7 +51,7 @@ static const char CONN_INFO[] = "dbname = cmusic";
 const char CANONICAL_NAME[] = "cnote";
 const char PACKAGE[] = "cnote";
 const char VERSION[] = "0.0.1";
-const char YEAR[] = "2010";
+const char YEAR[] = "2011";
 const char PACKAGE_BUGREPORT[] = "bobbypowers@gmail.com";
 
 // global var available to various functions that want to report status
