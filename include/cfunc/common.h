@@ -11,12 +11,11 @@
 #define _COMMON_H_
 
 // for asprintf
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <glib.h>
 
 // the '!!' is from Love's LSP book.  not quite sure why they're
 // desirable.  The ones listed on KernelTrap don't have them.
@@ -44,7 +43,13 @@ void exit_msg(const char *msg_fmt, ...);
 int sha256(uint8_t *hash, void *data, size_t len);
 char *sha256_hex_file(const char *path, size_t len);
 
+struct ops {
+	void (*list)(struct evhttp_request *hreq, struct ccgi_state *state);
+	void (*query)(struct evhttp_request *hreq, struct ccgi_state *state);
+};
+
 struct ccgi_state {
+	struct ops *ops;
 	int32_t socket;
 	const char *mount_point; // not currently used
 	struct evhttp *ev_http;

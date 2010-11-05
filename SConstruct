@@ -66,9 +66,9 @@ env.Library('lib/cfunc', Glob('lib/*.c'))
 
 # from here on are cnote-specific configs
 env.ParseConfig('pkg-config --cflags --libs taglib_c')
-env.MergeFlags(env.ParseFlags(['-Llib']))
+env.MergeFlags(env.ParseFlags(['-Llib']))#, '-I /usr/include/pgsql/server']))
 env.Prepend(LIBS='cfunc')
 
 env.Program('src/ctagdump', Glob('src/ctagdump.c'))
 env.Program('src/cnote', Glob('src/cnote.c'))
-env.Program('src/ctest', Glob('src/ctest.c'))
+#env.Program('src/ctest', Glob('src/ctest.c'))
