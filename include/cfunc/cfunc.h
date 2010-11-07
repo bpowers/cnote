@@ -26,7 +26,9 @@
 #ifndef __CFUNC_H__
 #define __CFUNC_H__
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 
 #include <Block.h>
 

@@ -40,7 +40,7 @@
 #include <event2/http_struct.h>
 #include <event2/buffer.h>
 
-#include <postgresql/libpq-fe.h>
+#include <libpq-fe.h>
 
 
 static uint16_t DEFAULT_PORT = 1969;
