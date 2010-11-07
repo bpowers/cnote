@@ -14,10 +14,18 @@ include $(patsubst %,%/module.mk,$(MODULES))
 OBJ := $(patsubst %.c,%.o,$(filter %.c,$(SRC))) \
        $(patsubst %.y,%.o,$(filter %.y,$(SRC)))
 # link the program
-prog: $(OBJ)
+src/cnote: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LIBS) $(LDFLAGS)
 # include the C include dependencies 
 include $(OBJ:.o=.d)
 # calculate C include
 %.d: %.c
 	support/depend.sh `dirname $*.c` $(CFLAGS) $*.c > $@
+
+
+all: src/cnote
+clean:
+	find . -name "*.o" | xargs rm
+	find . -name "*.d" | xargs rm
+
+.PHONY: clean
