@@ -51,7 +51,8 @@ artist_query(struct req *self, const char *artist)
 
 	conn = self->conn;
 	if (PQstatus(conn) != CONNECTION_OK) {
-		//PQfinish(conn);
+		PQclear(res);
+		PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -65,7 +66,7 @@ artist_query(struct req *self, const char *artist)
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		//PQfinish(conn);
+		PQfinish(conn);
 		exit_msg("");
 	}
 	rows = PQntuples(res);
@@ -95,7 +96,6 @@ artist_query(struct req *self, const char *artist)
 	json_array_unref(arr);
 
 	PQclear(res);
-	//PQfinish(conn);
 
 	return result;
 }
@@ -127,7 +127,8 @@ album_query(struct req *self, const char *artist)
 
 	conn = self->conn;
 	if (PQstatus(conn) != CONNECTION_OK) {
-		//PQfinish(conn);
+		PQclear(res);
+		PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -141,7 +142,7 @@ album_query(struct req *self, const char *artist)
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		//PQfinish(conn);
+		PQfinish(conn);
 		exit_msg("");
 	}
 	rows = PQntuples(res);
@@ -171,7 +172,6 @@ album_query(struct req *self, const char *artist)
 	json_array_unref(arr);
 
 	PQclear(res);
-	//PQfinish(conn);
 
 	return result;
 }
@@ -191,9 +191,11 @@ pg_exec(PGconn *conn, const char *query)
 		fprintf(stderr, "'%s' command failed (%d): %s", query,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		//PQfinish(conn);
+		PQfinish(conn);
 		exit_msg("");
 	}
+
+	PQclear(conn);
 
 	return res;
 }
@@ -232,9 +234,10 @@ query_list(PGconn *conn, const char *query_fmt)
 	int rows;
 	JsonArray *arr;
 	char *result;
-;
+
 	if (PQstatus(conn) != CONNECTION_OK) {
-		//PQfinish(conn);
+		PQclear(res);
+		PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -255,7 +258,6 @@ query_list(PGconn *conn, const char *query_fmt)
 	json_array_unref(arr);
 
 	PQclear(res);
-	//PQfinish(conn);
 
 	return result;
 }
