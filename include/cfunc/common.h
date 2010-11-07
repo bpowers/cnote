@@ -45,10 +45,21 @@ void exit_msg(const char *msg_fmt, ...);
 int sha256(uint8_t *hash, void *data, size_t len);
 char *sha256_hex_file(const char *path, size_t len);
 
-//struct ops {
-//	void (*list)(struct evhttp_request *hreq, struct ccgi_state *state);
-//	void (*query)(struct evhttp_request *hreq, struct ccgi_state *state);
-//};
+struct req;
+struct evhttp_request;
+
+struct ops {
+	char *(*list)(struct req *self);
+	char *(*query)(struct req *self, const char *name);
+};
+
+extern struct ops artist_ops;
+extern struct ops album_ops;
+
+struct req {
+	struct ops *ops;
+	struct evhttp_request *req;
+};
 
 struct ccgi_state {
 //	struct ops *ops;

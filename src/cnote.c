@@ -42,6 +42,7 @@
 
 #include <libpq-fe.h>
 
+PGconn *CONN;
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
@@ -72,21 +73,40 @@ static void print_help(void);
 static void print_version(void);
 static inline PGresult *pg_exec(PGconn *conn, const char *query);
 static char *query_list(const char *query_fmt);
-static void handle_generic(struct evhttp_request *req, struct ccgi_state *state);
-static void handle_artist(struct evhttp_request *req, struct ccgi_state *state);
-static void artist_list(struct evhttp_request *hreq, struct ccgi_state *state);
-static void artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
-			 const char *artist);
-static void handle_album(struct evhttp_request *req, struct ccgi_state *state);
-static void album_list(struct evhttp_request *hreq, struct ccgi_state *state);
-static void album_query(struct evhttp_request *hreq, struct ccgi_state *state,
-			const char *artist);
+
+static void handle_unknown(struct evhttp_request *req, void *unused);
+static void handle_request(struct evhttp_request *req, struct ops *ops);
+
+static char *artist_list(struct req *self);
+static char *artist_query(struct req *self, const char *artist);
+static char *album_list(struct req *self);
+static char *album_query(struct req *self, const char *artist);
+
 static inline char *json_array_to_string(JsonArray *arr);
 static inline void set_content_type_json(struct evhttp_request *req);
 
 // callback typedef
 typedef void(*evhttp_cb)(struct evhttp_request *, void *);
 
+struct ops artist_ops = {
+	.list = artist_list,
+	.query = artist_query,
+};
+
+struct ops album_ops = {
+	.list = album_list,
+	.query = album_query,
+};
+
+static struct req *
+req_new(struct ops *ops, struct evhttp_request *req)
+{
+	struct req *ret;
+	ret = xmalloc(sizeof(*ret));
+	ret->ops = ops;
+	ret->req = req;
+	return ret;
+}
 
 //===--- this is where the magic starts... ------------------------------===//
 int
@@ -96,6 +116,8 @@ main(int argc, char *const argv[])
 	uint16_t port;
 	const char *addr;
 	struct ccgi_state state;
+
+	CONN = PQconnectdb(CONN_INFO);
 
 	ccgi_state_init(&state);
 
@@ -144,9 +166,9 @@ main(int argc, char *const argv[])
 
 	// set the handlers for the api requests we care about, and set
 	// a generic error handler for everything else
-	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_generic, &state);
-	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_artist, &state);
-	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_album, &state);
+	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_unknown, NULL);
+	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_request, &artist_ops);
+	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_request, &album_ops);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
@@ -160,58 +182,48 @@ main(int argc, char *const argv[])
 
 // called when we get a request like /albums or /album/Album Of The Year
 static void
-handle_album(struct evhttp_request *req, struct ccgi_state *state)
+handle_request(struct evhttp_request *req, struct ops *ops)
 {
-	char *album;
-	const char *request_path;
+	struct req *request;
+	const char *name;
+	const char *result;
+	struct evbuffer *buf;
 
 	// we always return JSON
 	set_content_type_json(req);
 
+	request = req_new(ops, req);
+
 	// the URI always starts with a /, so check for another one.
 	// if there IS another '/', it means we have a request for a
 	// particular artist.
-	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
+	name = strchr(&evhttp_request_get_uri(req)[1], '/');
 
-	// read as: if we don't have a request path or if the request
-	// path is (exactly) the string "/", list the albums, else...
-	if (!request_path || !strcmp(request_path, "/")) {
-		album_list(req, state);
+	// read as: if we don't have a request name or if the request
+	// name is (exactly) the string "/", list the albums, else...
+	if (!name || !strcmp(name, "/")) {
+		result = request->ops->list(request);
 	}
 	else {
-		album = g_uri_unescape_string(&request_path[1], NULL);
-		album_query(req, state, album);
-		free(album);
+		char *real_name;
+		real_name = g_uri_unescape_string(&name[1], NULL);
+		result = request->ops->query(request, real_name);
+		free(real_name);
 	}
-}
 
-
-// called when we get a request like /artist or /artist/Cursive
-static void
-handle_artist(struct evhttp_request *req, struct ccgi_state *state)
-{
-	char *artist;
-	const char*request_path;
-
-	set_content_type_json(req);
-
-	request_path = strchr(&evhttp_request_get_uri(req)[1], '/');
-
-	if (!request_path || !strcmp(request_path, "/")) {
-		artist_list(req, state);
-	}
-	else {
-		artist = g_uri_unescape_string(&request_path[1], NULL);
-		artist_query(req, state, artist);
-		free(artist);
-	}
+	buf = evbuffer_new();
+	if (!buf)
+		exit_perr("%s: evbuffer_new", __func__);
+	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
+	evhttp_send_reply(req, HTTP_OK, "OK", buf);
+	evbuffer_free(buf);
 }
 
 
 // called when we don't have an artist or album API call - a fallthrough
 // error handler in a sense.
 static void
-handle_generic(struct evhttp_request *req, struct ccgi_state *state)
+handle_unknown(struct evhttp_request *req, void *unused)
 {
 	struct evbuffer *buf;
 
@@ -228,28 +240,15 @@ handle_generic(struct evhttp_request *req, struct ccgi_state *state)
 }
 
 
-static void
-artist_list(struct evhttp_request *hreq, struct ccgi_state *state)
+static char *
+artist_list(struct req *self)
 {
-	struct evbuffer *buf;
-
-	if (!state->artist_list)
-		state->artist_list = query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
-
-	buf = evbuffer_new();
-	if (!buf)
-		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, state->artist_list,
-			       strlen(state->artist_list), NULL, NULL);
-
-	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
-	evbuffer_free(buf);
+	return query_list("SELECT DISTINCT artist FROM music ORDER BY artist");
 }
 
 
-static void
-artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
-	     const char *artist)
+static char *
+artist_query(struct req *self, const char *artist)
 {
 	PGconn *conn;
 	PGresult *res;
@@ -258,15 +257,14 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	JsonArray *arr;
 	char *result;
 	const char *query_args[1], *query_fmt;
-	struct evbuffer *buf;
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
 		    "    ORDER BY album, track, title";
 
-	conn = PQconnectdb(CONN_INFO);
+	conn = CONN;//PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -280,7 +278,7 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("");
 	}
 	rows = PQntuples(res);
@@ -309,43 +307,22 @@ artist_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	result = json_array_to_string(arr);
 	json_array_unref(arr);
 
-	buf = evbuffer_new();
-	if (!buf)
-		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
-	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
-	evbuffer_free(buf);
-
 	PQclear(res);
-	PQfinish(conn);
+	//PQfinish(conn);
+
+	return result;
 }
 
 
-static void
-album_list(struct evhttp_request *req, struct ccgi_state *state)
+static char *
+album_list(struct req *self)
 {
-	char *result;
-	struct evbuffer *buf;
-
-	if (unlikely (!state))
-		exit_msg("%s: null state", __func__);
-
-	//fprintf(stderr, "INFO: album list\n");
-
-	result = query_list("SELECT DISTINCT album FROM music ORDER BY album");
-
-	buf = evbuffer_new();
-	if (!buf)
-		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
-	evhttp_send_reply(req, HTTP_OK, "OK", buf);
-	evbuffer_free(buf);
+	return query_list("SELECT DISTINCT album FROM music ORDER BY album");
 }
 
 
-static void
-album_query(struct evhttp_request *hreq, struct ccgi_state *state,
-	     const char *artist)
+static char *
+album_query(struct req *self, const char *artist)
 {
 	PGconn *conn;
 	PGresult *res;
@@ -354,7 +331,6 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	JsonArray *arr;
 	char *result;
 	const char *query_args[1], *query_fmt;
-	struct evbuffer *buf;
 
 	//fprintf(stderr, "INFO: artist query\n");
 
@@ -362,9 +338,9 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		    "    FROM music WHERE album = $1"
 		    "    ORDER BY album, track, title";
 
-	conn = PQconnectdb(CONN_INFO);
+	conn = CONN;//PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -378,7 +354,7 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("");
 	}
 	rows = PQntuples(res);
@@ -407,15 +383,10 @@ album_query(struct evhttp_request *hreq, struct ccgi_state *state,
 	result = json_array_to_string(arr);
 	json_array_unref(arr);
 
-	buf = evbuffer_new();
-	if (!buf)
-		exit_perr("%s: evbuffer_new", __func__);
-	evbuffer_add_reference(buf, result, strlen(result), free_cb, NULL);
-	evhttp_send_reply(hreq, HTTP_OK, "OK", buf);
-	evbuffer_free(buf);
-
 	PQclear(res);
-	PQfinish(conn);
+	//PQfinish(conn);
+
+	return result;
 }
 
 
@@ -472,7 +443,7 @@ pg_exec(PGconn *conn, const char *query)
 		fprintf(stderr, "'%s' command failed (%d): %s", query,
 			status, PQerrorMessage(conn));
 		PQclear(res);
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("");
 	}
 
@@ -523,9 +494,9 @@ query_list(const char *query_fmt)
 	JsonArray *arr;
 	char *result;
 
-	conn = PQconnectdb(CONN_INFO);
+	conn = CONN;//PQconnectdb(CONN_INFO);
 	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
+		//PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
 
@@ -546,7 +517,7 @@ query_list(const char *query_fmt)
 	json_array_unref(arr);
 
 	PQclear(res);
-	PQfinish(conn);
+	//PQfinish(conn);
 
 	return result;
 }
