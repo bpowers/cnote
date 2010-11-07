@@ -1,1 +1,1 @@
-SRC += lib/common.c lib/cfunc.c
+SRC += lib/common.c

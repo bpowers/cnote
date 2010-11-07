@@ -22,7 +22,7 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include <cfunc/cfunc.h>
+//#include <cfunc/cfunc.h>
 #include <cfunc/common.h>
 
 #include <stddef.h>

@@ -11,8 +11,9 @@ require('openssl')
 require('glib-2.0')
 require('json-glib-1.0')
 
-ENV['libs'] += ' -lBlocksRuntime'
+ENV['cflags'] += ' -Wall'
 ENV['libs'] += ' -lpq'
-#require(program='pg_config')
+
+config.prefer_cc(ENV, 'clang')
 
 config.generate_config(ENV, 'config.mk')

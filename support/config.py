@@ -62,3 +62,8 @@ def new_env():
         'ldflags': '',
         'libs': '',
     }
+
+def prefer_cc(env, cc):
+    path = run_cmd('which %s' % (cc))
+    if len(path) > 0:
+        env['cc'] = cc
