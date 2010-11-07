@@ -17,6 +17,7 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <libpq-fe.h>
@@ -26,6 +27,8 @@
 #define likely(x)   __builtin_expect(!!(x),1)
 #define unlikely(x) __builtin_expect(!!(x),0)
 #define __packed    __attribute__((packed))
+// prefetch a variable for reading into the L1 cache
+#define prefetch(x) __builtin_prefetch(x)
 
 // backlog arg for listen(2); max clients to keep in queue
 extern const int BACKLOG;
@@ -70,6 +73,38 @@ struct ccgi_state {
 	const char *artist_list;
 	const char *album_list;
 };
+
+struct list_head {
+	struct list_head *next;
+	struct list_head *prev;
+};
+
+#define list_for_each(pos, head)					\
+        for (pos = (head)->next; prefetch(pos->next), pos != (head);	\
+	     pos = pos->next)
+
+// XXX: not thread safe.
+static inline void
+list_add(struct list_head **curr, struct list_head *new)
+{
+	if ((*curr) == NULL) {
+		(*curr) = new;
+		(*curr)->prev = *curr;
+		(*curr)->next = *curr;
+		return;
+	}
+	struct list_head *last;
+	last = (*curr)->prev;
+	last->next = new;
+	new->prev = last;
+	new->next = *curr;
+	(*curr)->prev = new;
+}
+
+// from linux kernel
+#define container_of(ptr, type, member) ({		     \
+	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 void ccgi_state_init(struct ccgi_state *state);
 
