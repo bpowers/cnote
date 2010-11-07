@@ -19,6 +19,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <libpq-fe.h>
+
 // the '!!' is from Love's LSP book.  not quite sure why they're
 // desirable.  The ones listed on KernelTrap don't have them.
 #define likely(x)   __builtin_expect(!!(x),1)
@@ -53,12 +55,10 @@ struct ops {
 	char *(*query)(struct req *self, const char *name);
 };
 
-extern struct ops artist_ops;
-extern struct ops album_ops;
-
 struct req {
 	struct ops *ops;
 	struct evhttp_request *req;
+	PGconn *conn;
 };
 
 struct ccgi_state {
