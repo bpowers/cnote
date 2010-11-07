@@ -1,0 +1,18 @@
+#!/usr/bin/env python2
+from support import config
+
+ENV = config.new_env()
+
+# make the requires below prettier
+require = lambda lib='', program='pkg-config': config.require(ENV, lib, program)
+
+require('libevent >= 2.0')
+require('openssl')
+require('glib-2.0')
+require('json-glib-1.0')
+
+ENV['libs'] += ' -lBlocksRuntime'
+ENV['libs'] += ' -lpq'
+#require(program='pg_config')
+
+config.generate_config(ENV, 'config.mk')
