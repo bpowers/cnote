@@ -41,7 +41,7 @@
 #include <event2/buffer.h>
 
 #include <glib.h>
-#include <glib-object.h>
+
 #include <libpq-fe.h>
 
 PGconn *CONN;
@@ -134,9 +134,6 @@ main(int argc, char *const argv[])
 			exit(EXIT_FAILURE);
 		}
 	}
-
-	// our JSON library requires the glib type system to be initialized
-	g_type_init();
 
 	state.ev_base = event_base_new();
 	if (!state.ev_base)

@@ -3,7 +3,8 @@
 
 #include <stdlib.h>
 
-#include <json-glib/json-glib.h>
+#include <glib.h>
+
 #include <libpq-fe.h>
 
 #define ALLOWED_CHARS " \t\r\n'/()!,*"
@@ -15,8 +16,6 @@ static char *artist_list(struct req *self);
 static char *artist_query(struct req *self, const char *artist);
 static char *album_list(struct req *self);
 static char *album_query(struct req *self, const char *artist);
-
-static inline char *json_array_to_string(JsonArray *arr);
 
 struct info;
 static int info_length(struct info *self);
@@ -92,6 +91,7 @@ info_song_new(const char *title, const char *artist, const char *album,
 	return ret;
 }
 
+
 static struct info *
 info_string_new(const char *name)
 {
@@ -123,6 +123,22 @@ info_free(struct info *self)
 }
 
 
+static void
+info_list_destroy(struct list_head *head)
+{
+	struct list_head *pos;
+	pos = head;
+	do {
+		struct list_head *curr;
+		curr = pos;
+		// get next pointer now, because we're freeing the
+		// memory
+		pos = pos->next;
+		info_free(container_of(curr, struct info, list));
+	} while (pos != head);
+}
+
+
 static char *
 artist_list(struct req *self)
 {
@@ -136,10 +152,12 @@ artist_query(struct req *self, const char *artist)
 	PGconn *conn;
 	PGresult *res;
 	ExecStatusType status;
-	int rows;
-	JsonArray *arr;
+	int rows, len;
+	struct list_head *list;
 	char *result;
 	const char *query_args[1], *query_fmt;
+
+	list = NULL;
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
@@ -165,13 +183,11 @@ artist_query(struct req *self, const char *artist)
 		PQfinish(conn);
 		exit_msg("");
 	}
-	rows = PQntuples(res);
 
-	// build a JSON array out of the result
-	arr = json_array_sized_new(rows);
+	rows = PQntuples(res);
 	for (int i = 0; i < rows; ++i) {
 		char *title, *artist, *album, *track_s, *path;
-		JsonObject *obj = json_object_new();
+		struct info *song;
 
 		title = PQgetvalue(res, i, 0);
 		artist = PQgetvalue(res, i, 1);
@@ -179,26 +195,15 @@ artist_query(struct req *self, const char *artist)
 		track_s = PQgetvalue(res, i, 3);
 		path = PQgetvalue(res, i, 4);
 
-		struct info *song = info_song_new(title, artist, album,
-						  track_s, path);
-		int len = song->ops->length(song);
-		char *jsonified = xmalloc0(len);
-		song->ops->jsonify(song, jsonified);
-		fprintf(stderr, "jsonified: %s\n", jsonified);
-		free(jsonified);
-		info_free(song);
-
-		json_object_set_string_member(obj, "title", title);
-		json_object_set_string_member(obj, "artist", artist);
-		json_object_set_string_member(obj, "album", album);
-		json_object_set_int_member(obj, "track", atoi(track_s));
-		json_object_set_string_member(obj, "path", path);
-
-		json_array_add_object_element(arr, obj);
+		song = info_song_new(title, artist, album,
+				     track_s, path);
+		list_add(&list, &song->list);
 	}
 
-	result = json_array_to_string(arr);
-	json_array_unref(arr);
+	// the +1 is for the trailing null byte.
+	len = list_length(list) + 1;
+	result = xmalloc0(len);
+	list_jsonify(list, result);
 
 	PQclear(res);
 
@@ -219,12 +224,12 @@ album_query(struct req *self, const char *artist)
 	PGconn *conn;
 	PGresult *res;
 	ExecStatusType status;
-	int rows;
-	JsonArray *arr;
+	int rows, len;
+	struct list_head *list;
 	char *result;
 	const char *query_args[1], *query_fmt;
 
-	//fprintf(stderr, "INFO: artist query\n");
+	list = NULL;
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE album = $1"
@@ -250,13 +255,10 @@ album_query(struct req *self, const char *artist)
 		PQfinish(conn);
 		exit_msg("");
 	}
+
 	rows = PQntuples(res);
-
-	arr = json_array_sized_new(rows);
-
 	for (int i = 0; i < rows; ++i) {
 		char *title, *artist, *album, *track_s, *path;
-		JsonObject *obj = json_object_new();
 
 		title = PQgetvalue(res, i, 0);
 		artist = PQgetvalue(res, i, 1);
@@ -266,24 +268,15 @@ album_query(struct req *self, const char *artist)
 
 		struct info *song = info_song_new(title, artist, album,
 						  track_s, path);
-		int len = song->ops->length(song);
-		char *jsonified = xmalloc0(len);
-		song->ops->jsonify(song, jsonified);
-		fprintf(stderr, "jsonified: %s\n", jsonified);
-		free(jsonified);
-		info_free(song);
-
-		json_object_set_string_member(obj, "title", title);
-		json_object_set_string_member(obj, "artist", artist);
-		json_object_set_string_member(obj, "album", album);
-		json_object_set_int_member(obj, "track", atoi(track_s));
-		json_object_set_string_member(obj, "path", path);
-
-		json_array_add_object_element(arr, obj);
+		list_add(&list, &song->list);
 	}
 
-	result = json_array_to_string(arr);
-	json_array_unref(arr);
+	// the +1 is for the trailing null byte.
+	len = list_length(list) + 1;
+	result = xmalloc0(len);
+	list_jsonify(list, result);
+
+	info_list_destroy(list);
 
 	PQclear(res);
 
@@ -310,28 +303,6 @@ pg_exec(PGconn *conn, const char *query)
 	}
 
 	return res;
-}
-
-
-static inline char *
-json_array_to_string(JsonArray *arr)
-{
-	gsize len;
-	JsonGenerator *gen;
-	JsonNode *node;
-	char *result;
-
-	node = json_node_new(JSON_NODE_ARRAY);
-	json_node_set_array(node, arr);
-
-	gen = json_generator_new();
-	json_generator_set_root(gen, node);
-	json_node_free(node);
-
-	result = json_generator_to_data(gen, &len);
-	g_object_unref(gen);
-
-	return result;
 }
 
 
@@ -367,9 +338,12 @@ query_list(PGconn *conn, const char *query_fmt)
 		list_add(&list, &row->list);
 	}
 
-	len = list_length(list);
+	// the +1 is for the trailing null byte.
+	len = list_length(list) + 1;
 	result = xmalloc0(len);
 	list_jsonify(list, result);
+
+	info_list_destroy(list);
 
 	PQclear(res);
 
@@ -425,7 +399,9 @@ info_length(struct info *self)
 	len += member_len(self, track);
 	len += member_len(self, path);
 
-	return len;
+	// subtract one, because the last member doesn't have a trailing
+	// comma.
+	return len - 1;
 }
 
 #define member_jsonify(self, field) {				\
@@ -442,7 +418,6 @@ info_length(struct info *self)
 	*buf++ = '"';						\
 	*buf++ = ',';						\
 }
-
 static int
 jsonify(struct info *self, char *buf)
 {
