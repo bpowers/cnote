@@ -129,12 +129,11 @@ info_list_destroy(struct list_head *head)
 	struct list_head *pos;
 	pos = head;
 	do {
-		struct list_head *curr;
-		curr = pos;
-		// get next pointer now, because we're freeing the
-		// memory
+		struct info *curr;
+		curr = container_of(pos, struct info, list);
+		// get next pointer now since we're freeing the memory
 		pos = pos->next;
-		info_free(container_of(curr, struct info, list));
+		info_free(curr);
 	} while (pos != head);
 }
 
@@ -204,6 +203,8 @@ artist_query(struct req *self, const char *artist)
 	len = list_length(list) + 1;
 	result = xmalloc0(len);
 	list_jsonify(list, result);
+
+	info_list_destroy(list);
 
 	PQclear(res);
 
