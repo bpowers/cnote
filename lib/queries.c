@@ -11,6 +11,7 @@
 
 static inline PGresult *pg_exec(PGconn *conn, const char *query);
 static char *query_list(PGconn *conn, const char *query_fmt);
+static char *song_query(struct req *self, const char *query_fmt, const char *name);
 
 static char *artist_list(struct req *self);
 static char *artist_query(struct req *self, const char *artist);
@@ -147,67 +148,13 @@ artist_list(struct req *self)
 static char *
 artist_query(struct req *self, const char *artist)
 {
-	PGconn *conn;
-	PGresult *res;
-	ExecStatusType status;
-	int rows, len;
-	char *result;
-	const char *query_args[1], *query_fmt;
+	static const char *query_fmt = "SELECT title, artist, album, track, path"
+		"    FROM music WHERE artist = $1"
+		"    ORDER BY album, track, title";
 
-	LIST_HEAD(list);
-
-	query_fmt = "SELECT title, artist, album, track, path"
-		    "    FROM music WHERE artist = $1"
-		    "    ORDER BY album, track, title";
-
-	conn = self->conn;
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-
-	// FIXME: sanitize artist (little bobby tables...)
-	query_args[0] = artist;
-	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
-			   NULL, 0);
-	status = PQresultStatus(res);      
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
-			status, PQerrorMessage(conn));
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("");
-	}
-
-	rows = PQntuples(res);
-	for (int i = 0; i < rows; ++i) {
-		char *title, *artist, *album, *track_s, *path;
-		struct info *song;
-
-		title = PQgetvalue(res, i, 0);
-		artist = PQgetvalue(res, i, 1);
-		album = PQgetvalue(res, i, 2);
-		track_s = PQgetvalue(res, i, 3);
-		path = PQgetvalue(res, i, 4);
-
-		song = info_song_new(title, artist, album,
-				     track_s, path);
-		list_add(&list, &song->list);
-	}
-
-	// the +1 is for the trailing null byte.
-	len = list_length(&list) + 1;
-	result = xmalloc0(len);
-	list_jsonify(&list, result);
-
-	info_list_destroy(&list);
-
-	PQclear(res);
-
-	return result;
+	return song_query(self, query_fmt, artist);
 }
+
 
 
 static char *
@@ -218,67 +165,12 @@ album_list(struct req *self)
 
 
 static char *
-album_query(struct req *self, const char *artist)
+album_query(struct req *self, const char *album)
 {
-	PGconn *conn;
-	PGresult *res;
-	ExecStatusType status;
-	int rows, len;
-	char *result;
-	const char *query_args[1], *query_fmt;
-
-	LIST_HEAD(list);
-
-	query_fmt = "SELECT title, artist, album, track, path"
-		    "    FROM music WHERE album = $1"
-		    "    ORDER BY album, track, title";
-
-	conn = self->conn;
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-
-	// FIXME: sanitize artist
-	query_args[0] = artist;
-	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
-			   NULL, 0);
-	status = PQresultStatus(res);      
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
-			status, PQerrorMessage(conn));
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("");
-	}
-
-	rows = PQntuples(res);
-	for (int i = 0; i < rows; ++i) {
-		char *title, *artist, *album, *track_s, *path;
-
-		title = PQgetvalue(res, i, 0);
-		artist = PQgetvalue(res, i, 1);
-		album = PQgetvalue(res, i, 2);
-		track_s = PQgetvalue(res, i, 3);
-		path = PQgetvalue(res, i, 4);
-
-		struct info *song = info_song_new(title, artist, album,
-						  track_s, path);
-		list_add(&list, &song->list);
-	}
-
-	// the +1 is for the trailing null byte.
-	len = list_length(&list) + 1;
-	result = xmalloc0(len);
-	list_jsonify(&list, result);
-
-	info_list_destroy(&list);
-
-	PQclear(res);
-
-	return result;
+	static const char *query_fmt = "SELECT title, artist, album, track, path"
+		"    FROM music WHERE album = $1"
+		"    ORDER BY album, track, title";
+	return song_query(self, query_fmt, album);
 }
 
 
@@ -346,6 +238,69 @@ query_list(PGconn *conn, const char *query_fmt)
 
 	return result;
 }
+
+
+static char *
+song_query(struct req *self, const char *query_fmt, const char *name)
+{
+	PGconn *conn;
+	PGresult *res;
+	ExecStatusType status;
+	int rows, len;
+	char *result;
+	const char *query_args[1];
+
+	LIST_HEAD(list);
+
+	conn = self->conn;
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	// FIXME: sanitize artist (little bobby tables...)
+	query_args[0] = name;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);      
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	rows = PQntuples(res);
+	for (int i = 0; i < rows; ++i) {
+		char *title, *artist, *album, *track_s, *path;
+		struct info *song;
+
+		title = PQgetvalue(res, i, 0);
+		artist = PQgetvalue(res, i, 1);
+		album = PQgetvalue(res, i, 2);
+		track_s = PQgetvalue(res, i, 3);
+		path = PQgetvalue(res, i, 4);
+
+		song = info_song_new(title, artist, album,
+				     track_s, path);
+		list_add(&list, &song->list);
+	}
+
+	// the +1 is for the trailing null byte.
+	len = list_length(&list) + 1;
+	result = xmalloc0(len);
+	list_jsonify(&list, result);
+
+	info_list_destroy(&list);
+
+	PQclear(res);
+
+	return result;
+}
+
 
 // opening and closing square brackets
 static const int list_overhead = 2;
