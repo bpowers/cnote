@@ -38,7 +38,7 @@ var infoCb = function(type, clickAction) {
                 if (!a)
                     return;
                 html += '<div class="row"><a href="#' + type+ '=' + a + '">' +
-                    a + '</a></div>';
+                    decodeURIComponent(a) + '</a></div>';
             });
 
         $('#' + type).html(html);
@@ -70,8 +70,8 @@ var loadDetails = function(type, target) {
 		    if (!song)
 			return;
 		    html += '<div class="row"><a href="/music/' +
-			song.path + '">play</a> ' + song.album +
-			' - ' + song.title + '</div>';
+			song.path + '">play</a> ' + decodeURIComponent(song.album) +
+			' - ' + decodeURIComponent(song.title) + '</div>';
 		});
 	    $(options.content).html(html);
 	    $(options.content + ' .row a').bind('click', function(event) {
