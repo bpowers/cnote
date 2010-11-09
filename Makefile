@@ -1,4 +1,3 @@
-
 MODULES := lib src
 
 include config.mk

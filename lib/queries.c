@@ -7,7 +7,7 @@
 
 #include <libpq-fe.h>
 
-#define ALLOWED_CHARS " \t\r\n'/()!,*"
+#define ALLOWED_CHARS " \t\r\n'/()!,*&#:"
 
 static inline PGresult *pg_exec(PGconn *conn, const char *query);
 static char *query_list(PGconn *conn, const char *query_fmt);
@@ -127,14 +127,13 @@ static void
 info_list_destroy(struct list_head *head)
 {
 	struct list_head *pos;
-	pos = head;
-	do {
+	for (pos = head->next; pos != head;) {
 		struct info *curr;
 		curr = container_of(pos, struct info, list);
 		// get next pointer now since we're freeing the memory
 		pos = pos->next;
 		info_free(curr);
-	} while (pos != head);
+	}
 }
 
 
@@ -152,11 +151,10 @@ artist_query(struct req *self, const char *artist)
 	PGresult *res;
 	ExecStatusType status;
 	int rows, len;
-	struct list_head *list;
 	char *result;
 	const char *query_args[1], *query_fmt;
 
-	list = NULL;
+	LIST_HEAD(list);
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE artist = $1"
@@ -200,11 +198,11 @@ artist_query(struct req *self, const char *artist)
 	}
 
 	// the +1 is for the trailing null byte.
-	len = list_length(list) + 1;
+	len = list_length(&list) + 1;
 	result = xmalloc0(len);
-	list_jsonify(list, result);
+	list_jsonify(&list, result);
 
-	info_list_destroy(list);
+	info_list_destroy(&list);
 
 	PQclear(res);
 
@@ -226,11 +224,10 @@ album_query(struct req *self, const char *artist)
 	PGresult *res;
 	ExecStatusType status;
 	int rows, len;
-	struct list_head *list;
 	char *result;
 	const char *query_args[1], *query_fmt;
 
-	list = NULL;
+	LIST_HEAD(list);
 
 	query_fmt = "SELECT title, artist, album, track, path"
 		    "    FROM music WHERE album = $1"
@@ -273,11 +270,11 @@ album_query(struct req *self, const char *artist)
 	}
 
 	// the +1 is for the trailing null byte.
-	len = list_length(list) + 1;
+	len = list_length(&list) + 1;
 	result = xmalloc0(len);
-	list_jsonify(list, result);
+	list_jsonify(&list, result);
 
-	info_list_destroy(list);
+	info_list_destroy(&list);
 
 	PQclear(res);
 
@@ -316,10 +313,9 @@ query_list(PGconn *conn, const char *query_fmt)
 {
 	PGresult *res;
 	int rows, len;
-	struct list_head *list;
 	char *result;
 
-	list = NULL;
+	LIST_HEAD(list);
 
 	if (PQstatus(conn) != CONNECTION_OK) {
 		PQclear(res);
@@ -340,11 +336,11 @@ query_list(PGconn *conn, const char *query_fmt)
 	}
 
 	// the +1 is for the trailing null byte.
-	len = list_length(list) + 1;
+	len = list_length(&list) + 1;
 	result = xmalloc0(len);
-	list_jsonify(list, result);
+	list_jsonify(&list, result);
 
-	info_list_destroy(list);
+	info_list_destroy(&list);
 
 	PQclear(res);
 

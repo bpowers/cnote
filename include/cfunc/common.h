@@ -85,21 +85,28 @@ struct list_head {
 
 // XXX: not thread safe.
 static inline void
-list_add(struct list_head **curr, struct list_head *new)
+list_add(struct list_head *curr, struct list_head *new)
 {
+	/*
 	if ((*curr) == NULL) {
 		(*curr) = new;
 		(*curr)->prev = *curr;
 		(*curr)->next = *curr;
 		return;
 	}
+	*/
 	struct list_head *last;
-	last = (*curr)->prev;
+	last = curr->prev;
 	last->next = new;
 	new->prev = last;
-	new->next = *curr;
-	(*curr)->prev = new;
+	new->next = curr;
+	curr->prev = new;
 }
+
+#define LIST_HEAD_INIT(name) { &(name), &(name) }
+
+#define LIST_HEAD(name) \
+	struct list_head name = LIST_HEAD_INIT(name)
 
 // from linux kernel
 #define container_of(ptr, type, member) ({		     \
