@@ -22,6 +22,7 @@ OBJ := $(patsubst %.c,%.o,$(filter %.c,$(SRC))) \
 
 # link the program
 src/cnote: $(OBJ)
+	@echo "  LD    $@"
 	$(CC) -o $@ $(OBJ) $(LIBS) $(LDFLAGS)
 
 # clear out all suffixes
@@ -39,7 +40,7 @@ src/cnote: $(OBJ)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 # include the C include dependencies
-include $(OBJ:.o=.d)
+-include $(OBJ:.o=.d)
 
 TARGETS := src/cnote
 
@@ -47,7 +48,9 @@ all: $(TARGETS)
 
 clean:
 	find . -name "*.o" | xargs rm -f
-	find . -name "*.d" | xargs rm -f
 	rm -f $(TARGETS)
 
-.PHONY: clean
+distclean: clean
+	find . -name "*.d" | xargs rm -f
+
+.PHONY: clean distclean
