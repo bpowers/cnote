@@ -156,7 +156,6 @@ artist_query(struct req *self, const char *artist)
 }
 
 
-
 static char *
 album_list(struct req *self)
 {
@@ -308,8 +307,8 @@ static const int list_overhead = 2;
 static int
 list_length(struct list_head *self)
 {
-	int len;
 	struct list_head *curr;
+	int len;
 
 	len = list_overhead;
 
@@ -319,6 +318,7 @@ list_length(struct list_head *self)
 		len += data->ops->length(data) + 1;
 	}
 
+	// FIXME: This will also behave weirdly in the 0-length case.
 	// remove the last trailing comma, as per the json.org spec
 	len -= 1;
 
@@ -414,6 +414,7 @@ list_jsonify(struct list_head *self, char *buf)
 
 	// remove the last trailing comma, replacing it with the closing
 	// bracket
+	// FIXME: what if we're an empty list?  this fails.
 	*--buf = ']';
 
 	return len;
