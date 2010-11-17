@@ -22,7 +22,7 @@ OBJ := $(patsubst %.c,%.o,$(filter %.c,$(SRC))) \
 # link the program
 src/cnote: $(OBJ)
 	@echo "  LD    $@"
-	$(CC) -o $@ $(OBJ) $(LIBS) $(LDFLAGS)
+	$(CC) -o $@ $(OBJ) $(LIBS) $(CFLAGS) $(LDFLAGS)
 
 # clear out all suffixes
 .SUFFIXES:

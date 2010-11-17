@@ -26,6 +26,8 @@
 #include <cfunc/common.h>
 #include <cfunc/queries.h>
 
+#include <pthread.h>
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +35,9 @@
 #include <signal.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <ftw.h>
 
+#include <sys/inotify.h>
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -49,6 +53,7 @@ PGconn *CONN;
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "dbname = cmusic";
+static const char DEFAULT_DIR[] = "/var/unsecure/music";
 
 // TODO: should be stuck into a config.h eventually
 const char CANONICAL_NAME[] = "cnote";
@@ -80,7 +85,7 @@ static void handle_request(struct evhttp_request *req, struct ops *ops);
 static inline void set_content_type_json(struct evhttp_request *req);
 
 // callback typedef
-typedef void(*evhttp_cb)(struct evhttp_request *, void *);
+typedef void (*evhttp_cb)(struct evhttp_request *, void *);
 
 
 static struct req *
@@ -94,14 +99,62 @@ req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 	return ret;
 }
 
+static const int IN_MASK = IN_MODIFY | IN_ATTRIB | IN_MOVE | IN_DELETE | IN_CREATE | IN_DELETE_SELF;
+int ifd;
+
+int add_watch(const char *fpath, const struct stat *sb,
+	      int typeflag, struct FTW *ftwbuf)
+{
+	int watch;
+	// only add watches to directories
+	if ((typeflag & FTW_D) == 0)
+		return 0;
+
+	watch = inotify_add_watch(ifd, fpath, IN_MASK);
+	if (watch == -1)
+		exit_perr("inotify error");
+
+	return 0;
+}
+
+typedef void *(*pthread_routine)(void *);
+static void *
+update_routine(const char *dir_name)
+{
+
+	struct epoll_event ev;
+	int efd;
+	fprintf(stderr, "dir name: %s\n", dir_name);
+
+	ev_base = event_base_new();
+	if (!ev_base)
+		exit_msg("event_base_new");
+	ifd = inotify_init();
+	if (ifd < 0)
+		exit_perr("inotify_init");
+
+	efd = epoll_create(1);
+	if (efd < 0)
+		exit_perr("epoll_create");
+
+
+	nftw(dir_name, add_watch, 128, 0);
+
+	
+
+	pthread_exit(NULL);
+}
+
+
 //===--- this is where the magic starts... ------------------------------===//
 int
 main(int argc, char *const argv[])
 {
 	int optc, err;
 	uint16_t port;
-	const char *addr;
+	const char *addr, *dir;
 	struct ccgi_state state;
+	pthread_t update_thread;
 
 	CONN = PQconnectdb(CONN_INFO);
 
@@ -110,6 +163,7 @@ main(int argc, char *const argv[])
 	program_name = argv[0];
 	addr = DEFAULT_ADDR;
 	port = DEFAULT_PORT;
+	dir = DEFAULT_DIR;
 
 	// process arguments from the command line
 	while ((optc = getopt_long(argc, argv,
@@ -155,6 +209,9 @@ main(int argc, char *const argv[])
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
+
+
+	pthread_create(&update_thread, NULL, (pthread_routine)update_routine, (void *)dir);
 
 	// the main event loop
 	event_base_dispatch(state.ev_base);
