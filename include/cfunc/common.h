@@ -110,8 +110,8 @@ list_add(struct list_head *curr, struct list_head *new)
 
 // from linux kernel
 #define container_of(ptr, type, member) ({		     \
-	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-	(type *)( (char *)__mptr - offsetof(type,member) );})
+	const typeof(((type *)0)->member) *__mptr = (ptr);   \
+	(type *)((char *)__mptr - offsetof(type,member) );})
 
 void ccgi_state_init(struct ccgi_state *state);
 

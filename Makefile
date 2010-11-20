@@ -8,9 +8,16 @@ ifneq ($V, 1)
 MAKEFLAGS = -s
 endif
 
+WARNFLAGS := \
+        -W -Wformat -Wall -Wundef -Wpointer-arith -Wcast-qual \
+        -Wwrite-strings -Wsign-compare -Wmissing-noreturn \
+        -Wextra -Wstrict-aliasing=2
+# clang doesn't know about this yet
+#        -Wunsafe-loop-optimizations
+
 # look for include files in each of the modules
 CFLAGS += $(patsubst %,-I%,$(MODULES))
-CFLAGS += -std=gnu99 -Iinclude
+CFLAGS += -std=gnu99 -Iinclude $(WARNFLAGS)
 # each module will add to this
 SRC :=
 # include the description for each module

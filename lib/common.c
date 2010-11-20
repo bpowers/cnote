@@ -64,7 +64,7 @@ xmalloc (size_t size)
 }
 
 
-void __attribute__ ((format (printf, 1, 2)))
+void __attribute__ ((noreturn,format(printf, 1, 2)))
 exit_msg(const char *err_fmt, ...)
 {
 	va_list args;
@@ -87,7 +87,7 @@ exit_msg(const char *err_fmt, ...)
 }
 
 
-void __attribute__ ((format (printf, 1, 2)))
+void __attribute__ ((noreturn,format(printf, 1, 2)))
 exit_perr(const char *err_fmt, ...)
 {
 	va_list args;

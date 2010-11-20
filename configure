@@ -10,7 +10,7 @@ require('libevent >= 2.0')
 require('openssl')
 require('glib-2.0')
 
-ENV['cflags'] += ' -Wall -g -O3 -pthread'
+ENV['cflags'] += ' -g -O3 -pthread'
 ENV['libs'] += ' -lpq'
 #ENV['ld'] = 'ld.gold'
 
