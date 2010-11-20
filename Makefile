@@ -9,7 +9,7 @@ MAKEFLAGS = -s
 endif
 
 WARNFLAGS := \
-        -W -Wformat -Wall -Wundef -Wpointer-arith -Wcast-qual \
+        -Wformat -Wall -Wundef -Wpointer-arith -Wcast-qual \
         -Wwrite-strings -Wsign-compare -Wmissing-noreturn \
         -Wextra -Wstrict-aliasing=2
 # clang doesn't know about this yet

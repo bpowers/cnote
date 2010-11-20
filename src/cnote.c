@@ -263,7 +263,7 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 // called when we don't have an artist or album API call - a fallthrough
 // error handler in a sense.
 static void
-handle_unknown(struct evhttp_request *req, void *unused)
+handle_unknown(struct evhttp_request *req, void *unused __unused__)
 {
 	struct evbuffer *buf;
 

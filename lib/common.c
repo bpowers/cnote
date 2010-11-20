@@ -162,7 +162,7 @@ sha256_hex_file(const char *path, size_t len)
 
 
 void
-free_cb(const void *data, size_t datalen, void *extra)
+free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
 {
 	g_free((gpointer)data);
 }

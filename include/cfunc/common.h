@@ -29,6 +29,7 @@
 #define __packed    __attribute__((packed))
 // prefetch a variable for reading into the L1 cache
 #define prefetch(x) __builtin_prefetch(x)
+#define __unused__    __attribute__((unused))
 
 // backlog arg for listen(2); max clients to keep in queue
 extern const int BACKLOG;
@@ -87,14 +88,6 @@ struct list_head {
 static inline void
 list_add(struct list_head *curr, struct list_head *new)
 {
-	/*
-	if ((*curr) == NULL) {
-		(*curr) = new;
-		(*curr)->prev = *curr;
-		(*curr)->next = *curr;
-		return;
-	}
-	*/
 	struct list_head *last;
 	last = curr->prev;
 	last->next = new;
