@@ -48,8 +48,8 @@ void exit_perr(const char *msg_fmt, ...);
 // prints msg to stderr and exits, indicating failure
 void exit_msg(const char *msg_fmt, ...);
 
-int sha256(uint8_t *hash, void *data, size_t len);
-char *sha256_hex_file(const char *path, size_t len);
+//int sha256(uint8_t *hash, void *data, size_t len);
+const char *sha256_hex_file(const char *path, size_t len);
 
 struct req;
 struct evhttp_request;

@@ -38,7 +38,6 @@
 #include <ftw.h>
 
 #include <sys/inotify.h>
-#include <sys/epoll.h>
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -50,6 +49,8 @@
 #include <libpq-fe.h>
 
 PGconn *CONN;
+
+#define IBUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
@@ -100,51 +101,124 @@ req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 	return ret;
 }
 
-static const int IN_MASK = IN_MODIFY | IN_ATTRIB | IN_MOVE | IN_DELETE | IN_CREATE | IN_DELETE_SELF;
-int ifd;
+#define IN_MASK \
+	(IN_CLOSE_WRITE | IN_CREATE | IN_MOVE | IN_DELETE | IN_DELETE_SELF)
 
+// nasty global to get around nftw limitations
+int GLOBAL_ifd;
+GHashTable *GLOBAL_wds;
+
+// callback for use with nftw
 int add_watch(const char *fpath, const struct stat *sb __unused__,
 	      int typeflag, struct FTW *ftwbuf __unused__)
 {
 	int watch;
+
 	// only add watches to directories
 	if ((typeflag & FTW_D) == 0)
 		return 0;
 
-	watch = inotify_add_watch(ifd, fpath, IN_MASK);
+	watch = inotify_add_watch(GLOBAL_ifd, fpath, IN_MASK);
 	if (watch == -1)
 		exit_perr("inotify error");
 
+	g_hash_table_insert(GLOBAL_wds, (void *)watch, strdup(fpath));
+
 	return 0;
+}
+
+
+wd_remove_key(gpointer key)
+{
+	free(key);
+}
+
+
+void
+wd_remove_free(gpointer data)
+{
+	free(data);
+}
+
+static void
+handle_ievent(struct inotify_event *i)
+{
+	printf("    wd =%2d; ", i->wd);
+    if (i->cookie > 0)
+        printf("cookie =%4d; ", i->cookie);
+
+    printf("mask = ");
+    if (i->mask & IN_ACCESS)        printf("IN_ACCESS ");
+    if (i->mask & IN_ATTRIB)        printf("IN_ATTRIB ");
+    if (i->mask & IN_CLOSE_NOWRITE) printf("IN_CLOSE_NOWRITE ");
+    if (i->mask & IN_CLOSE_WRITE)   printf("IN_CLOSE_WRITE ");
+    if (i->mask & IN_CREATE)        printf("IN_CREATE ");
+    if (i->mask & IN_DELETE)        printf("IN_DELETE ");
+    if (i->mask & IN_DELETE_SELF)   printf("IN_DELETE_SELF ");
+    if (i->mask & IN_IGNORED)       printf("IN_IGNORED ");
+    if (i->mask & IN_ISDIR)         printf("IN_ISDIR ");
+    if (i->mask & IN_MODIFY)        printf("IN_MODIFY ");
+    if (i->mask & IN_MOVE_SELF)     printf("IN_MOVE_SELF ");
+    if (i->mask & IN_MOVED_FROM)    printf("IN_MOVED_FROM ");
+    if (i->mask & IN_MOVED_TO)      printf("IN_MOVED_TO ");
+    if (i->mask & IN_OPEN)          printf("IN_OPEN ");
+    if (i->mask & IN_Q_OVERFLOW)    printf("IN_Q_OVERFLOW ");
+    if (i->mask & IN_UNMOUNT)       printf("IN_UNMOUNT ");
+    printf("\n");
+
+    int tmp = 1200;
+
+        if (i->len > 0)
+		printf("        name = %s/%s\n",
+		       g_hash_table_lookup(GLOBAL_wds, (void *)i->wd),
+		       i->name);
 }
 
 typedef void *(*pthread_routine)(void *);
 static void *
 update_routine(const char *dir_name)
 {
-	struct event_base *ev_base;
-	struct epoll_event ev;
-	int efd;
+	int efd, ifd;
+	GHashTable *wds;
+	char buf[IBUF_LEN];
+	ssize_t len;
 
 	fprintf(stderr, "dir name: %s\n", dir_name);
 
-	ev_base = event_base_new();
-	if (!ev_base)
-		exit_msg("event_base_new");
+	wds = g_hash_table_new_full(NULL, NULL, wd_remove_key,
+				    wd_remove_free);
 
 	ifd = inotify_init();
 	if (ifd < 0)
 		exit_perr("inotify_init");
 
-	nftw(dir_name, add_watch, 128, 0);
+	GLOBAL_ifd = ifd;
+	GLOBAL_wds = wds;
+	nftw(dir_name, add_watch, 32, 0);
+	GLOBAL_ifd = -1;
+	//GLOBAL_wds = NULL;
+	fflush(stdout);
 
-	efd = epoll_create(1);
-	if (efd < 0)
-		exit_perr("epoll_create");
+	while (true) {
+		len = read(ifd, buf, IBUF_LEN);
+		if (len == 0)
+			exit_msg("inotify returned 0");
+		if (len == -1)
+			exit_perr("inotify read");
 
-	
+		for (char *p = buf; p < buf + len;) {
+			struct inotify_event *event;
+			event = (struct inotify_event *)p;
 
-	pthread_exit(NULL);
+			handle_ievent(event);
+
+			p += sizeof(*event) + event->len;
+		}
+	}
+
+	g_hash_table_unref(wds);
+
+	return NULL;
 }
 
 

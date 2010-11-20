@@ -110,6 +110,7 @@ exit_perr(const char *err_fmt, ...)
 }
 
 
+/*
 int
 sha256 (uint8_t *hash, void *data, size_t len)
 {
@@ -123,11 +124,14 @@ sha256 (uint8_t *hash, void *data, size_t len)
 
 	return 0;
 }
+*/
 
 
-char *
-sha256_hex_file(const char *path, size_t len)
+const char *
+sha256_hex_file(const char *path __unused__, size_t len __unused__)
 {
+	return "0000000000000000000000000000000000000000";
+/*
 	int fd;
 	uint8_t sha256[SHA256_DIGEST_LENGTH];
 	char *ret;
@@ -158,6 +162,7 @@ sha256_hex_file(const char *path, size_t len)
 	close(fd);
 
 	return ret;
+*/
 }
 
 
