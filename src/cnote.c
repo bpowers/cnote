@@ -38,6 +38,7 @@
 #include <ftw.h>
 
 #include <sys/inotify.h>
+#include <sys/epoll.h>
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -102,8 +103,8 @@ req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 static const int IN_MASK = IN_MODIFY | IN_ATTRIB | IN_MOVE | IN_DELETE | IN_CREATE | IN_DELETE_SELF;
 int ifd;
 
-int add_watch(const char *fpath, const struct stat *sb,
-	      int typeflag, struct FTW *ftwbuf)
+int add_watch(const char *fpath, const struct stat *sb __unused__,
+	      int typeflag, struct FTW *ftwbuf __unused__)
 {
 	int watch;
 	// only add watches to directories
@@ -121,24 +122,25 @@ typedef void *(*pthread_routine)(void *);
 static void *
 update_routine(const char *dir_name)
 {
-
+	struct event_base *ev_base;
 	struct epoll_event ev;
 	int efd;
+
 	fprintf(stderr, "dir name: %s\n", dir_name);
 
 	ev_base = event_base_new();
 	if (!ev_base)
 		exit_msg("event_base_new");
+
 	ifd = inotify_init();
 	if (ifd < 0)
 		exit_perr("inotify_init");
 
+	nftw(dir_name, add_watch, 128, 0);
+
 	efd = epoll_create(1);
 	if (efd < 0)
 		exit_perr("epoll_create");
-
-
-	nftw(dir_name, add_watch, 128, 0);
 
 	
 

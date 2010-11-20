@@ -1,1 +1,1 @@
-SRC += lib/common.c lib/queries.c
+SRC += lib/common.c lib/queries.c lib/db.c lib/tags.c

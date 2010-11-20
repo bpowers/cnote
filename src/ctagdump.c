@@ -100,7 +100,7 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	char mtime[26];
 	struct stat stats;
 	size_t len;
-	const char *query_args[8];
+	char *query_args[8];
 	char *query_fmt = 
 		"INSERT INTO music (title, artist, album, track, time, path, hash, modified)" 
 		"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
@@ -136,8 +136,8 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	query_args[0] = taglib_tag_title(tag);
 	query_args[1] = taglib_tag_artist(tag);
 	query_args[2] = taglib_tag_album(tag);
-	asprintf((char **)&query_args[3], "%d", taglib_tag_track(tag));
-	asprintf((char **)&query_args[4], "%d",
+	asprintf(&query_args[3], "%d", taglib_tag_track(tag));
+	asprintf(&query_args[4], "%d",
 		 taglib_audioproperties_length(props));
 	query_args[5] = rel_path;
 	query_args[6] = sha256_hex_file(file_path, stats.st_size);
