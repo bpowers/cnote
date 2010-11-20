@@ -31,6 +31,8 @@
 #define prefetch(x) __builtin_prefetch(x)
 #define __unused__    __attribute__((unused))
 
+typedef void *(*pthread_routine)(void *);
+
 // backlog arg for listen(2); max clients to keep in queue
 extern const int BACKLOG;
 extern const char *program_name;
