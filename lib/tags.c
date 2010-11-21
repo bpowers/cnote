@@ -32,12 +32,14 @@
 #include <libpq-fe.h>
 
 #define IBUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
+// the amount of buffer watch descriptors to allocate
+#define WD_EXTRA (512)
 
 // TODO: these should be thread local via pthread keys
 // nasty globals to get around nftw limitations
 static int GLOBAL_ifd;
 static int GLOBAL_flags;
-static GHashTable *GLOBAL_wds;
+static struct watch_list *GLOBAL_wds;
 static int GLOBAL_count;
 
 
@@ -67,8 +69,8 @@ watch_state_free(struct watch_state *self)
 		free((void *)self->dir_name);
 	if (self->conn)
 		PQfinish(self->conn);
-	if (self->wds)
-		g_hash_table_unref(self->wds);
+	if (self->wds.slab)
+		free(self->wds.slab);
 	free(self);
 }
 
@@ -161,7 +163,7 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 	if (watch == -1)
 		exit_perr("inotify error");
 
-	g_hash_table_insert(GLOBAL_wds, (void *)watch, strdup(fpath));
+	watch_list_put(GLOBAL_wds, watch, strdup(fpath));
 
 	return 0;
 }
@@ -177,23 +179,6 @@ count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
 	return 0;
 }
 
-
-// for our watch->dirname hash table
-static void
-wd_remove_key(gpointer key)
-{
-	printf("remove key called for %d\n", *(int *)key);
-	fflush(stdout);
-	//free(key);
-}
-static void
-wd_remove_free(gpointer data)
-{
-	printf("remove val called for %s\n", data);
-	fflush(stdout);
-	free(data);
-}
-
 void *
 watch_routine(struct watch_state *self)
 {
@@ -206,12 +191,6 @@ watch_routine(struct watch_state *self)
 
 	fprintf(stderr, "dir name: %s\n", self->dir_name);
 
-	self->wds = g_hash_table_new_full(NULL, NULL,
-					  wd_remove_key,
-					  wd_remove_free);
-	if (!self->wds)
-		exit_msg("couldn't allocate self->wds");
-
 	self->ifd = inotify_init();
 	if (self->ifd == -1)
 		exit_perr("inotify_init");
@@ -221,10 +200,11 @@ watch_routine(struct watch_state *self)
 	count = GLOBAL_count;
 	printf("%d dirs\n", GLOBAL_count);
 
+	watch_list_init(&self->wds, count + WD_EXTRA);
 
 	GLOBAL_ifd = self->ifd;
 	GLOBAL_flags = self->iflags;
-	GLOBAL_wds = self->wds;
+	GLOBAL_wds = &self->wds;
 	nftw(self->dir_name, add_watch, 32, 0);
 	GLOBAL_ifd = -1;
 	GLOBAL_flags = 0;

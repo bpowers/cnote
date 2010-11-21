@@ -11,7 +11,7 @@ require('libevent >= 2.0')
 require('glib-2.0')
 require('taglib_c')
 
-ENV['cflags'] += ' -g -O3 -pthread'
+ENV['cflags'] += ' -g -pthread'
 ENV['libs'] += ' -lpq'
 ENV['ldflags'] += ' -Wl,--no-add-needed'
 #ENV['ld'] = 'ld.gold'

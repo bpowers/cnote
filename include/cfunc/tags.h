@@ -18,7 +18,7 @@ struct inotify_event;
 struct watch_state {
 	void (*on_change)(struct watch_state *self, struct inotify_event *i);
 	const char *dir_name;
-	GHashTable *wds;
+	struct watch_list wds;
 	PGconn *conn;
 	int iflags;
 	int ifd;

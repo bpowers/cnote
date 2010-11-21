@@ -50,8 +50,9 @@
 
 PGconn *CONN;
 
+// don't need IN_DELETE_SELF because we get IN_IGNORED for free
 #define IN_MASK	\
-	(IN_CLOSE_WRITE | IN_CREATE | IN_MOVE | IN_DELETE | IN_DELETE_SELF)
+	(IN_CLOSE_WRITE | IN_CREATE | IN_MOVE | IN_DELETE)
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
@@ -103,19 +104,77 @@ req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 }
 
 
+static bool
+is_music(char *path)
+{
+	char *ext;
+	ext = strrchr(path, '.');
+	if (!ext)
+		return false;
+	ext++;
+	if (strcmp(ext, "mp3") ||
+	    strcmp(ext, "m4a") ||
+	    strcmp(ext, "ogg") ||
+	    strcmp(ext, "flac"))
+		return true;
+	return false;
+}
+
+static void
+handle_song_ievent(struct watch_state *self, struct inotify_event *i,
+		   char *path)
+{
+	char *short_path;
+
+	// short path is the path under '$dir_name/'
+	short_path = &path[strlen(self->dir_name) + 1];
+
+	printf("song ievent: %s\n", short_path);
+
+	if (i->mask & IN_DELETE ||
+	    i->mask & IN_MOVED_FROM) {
+		printf("  delete\n");
+		fflush(stdout);
+		goto cleanup;
+	}
+
+/*
+	if (i->mask & IN_CLOSE_WRITE ||
+	    i->mask & IN_MOVED_TO) {
+		printf("  new\n");
+		fflush(stdout);
+		return;
+	}
+*/
+
+	printf("  new or changed\n");
+	fflush(stdout);
+
+cleanup:
+	free(path);
+}
+
 static void
 handle_ievent(struct watch_state *self, struct inotify_event *i)
 {
-	char *name;
+	bool malloced;
+	char *path;
 	int err;
 
 	// get full path
-	err = asprintf(&name, "%s/%s",
-		       g_hash_table_lookup(self->wds, (void *)i->wd),
-		       i->name);
-	if (err == -1)
-		exit_perr("handle_ievent: asprintf");
+	if (i->len > 0) {
+		err = asprintf(&path, "%s/%s",
+			       watch_list_get(&self->wds, i->wd),
+			       i->name);
+		if (err == -1)
+			exit_perr("handle_ievent: asprintf");
+		malloced = true;
+	} else {
+		path = watch_list_get(&self->wds, i->wd);
+		malloced = false;
+	}
 
+/*
 	printf("    wd =%2d; ", i->wd);
 	if (i->cookie > 0)
 		printf("cookie =%4d; ", i->cookie);
@@ -140,19 +199,11 @@ handle_ievent(struct watch_state *self, struct inotify_event *i)
 	printf("\n");
 
         if (i->len > 0)
-		printf("        name = %s/%s\n",
-		       g_hash_table_lookup(self->wds, (void *)i->wd),
-		       i->name);
-
-	printf("c: %s\n", name);
-	fflush(stdout);
-
-
+		printf("        name = %s\n", path);
+*/
 	// handle new directory creation, or a directory move
 	if (i->mask & IN_CREATE ||
 	    (i->mask & IN_MOVED_TO && i->mask & IN_ISDIR)) {
-		printf("a\n");
-		fflush(stdout);
 		int watch;
 		// we only care about create events for directories,
 		// because create events for files are followed by
@@ -160,48 +211,34 @@ handle_ievent(struct watch_state *self, struct inotify_event *i)
 		if (!(i->mask & IN_ISDIR))
 			goto cleanup;
 
-		watch = inotify_add_watch(self->ifd, name, self->iflags);
+		watch = inotify_add_watch(self->ifd, path, self->iflags);
 		if (watch == -1)
 			exit_perr("inotify error");
 
-		printf("added watch %d for '%s'\n", watch, name);
-		fflush(stdout);
+		watch_list_put(&self->wds, watch, path);
 
-		g_hash_table_insert(self->wds, (void *)watch, name);
-
+		// watch_list now owns name, so don't free it;
 		return;
 	}
 
 	if (i->mask & (IN_IGNORED | IN_DELETE_SELF) ||
 	    (i->mask & IN_MOVED_FROM && i->mask & IN_ISDIR)) {
-		// I wanted to do stuff here, but it wasn't working
-		// and isn't strictly necessary
-		/*
-		int watch;
-		watch = g_hash_table_lookup();
-		printf("removed watch %d for '%s'\n", i->wd, name);
-		fflush(stdout);
-		// don't care about the return value, becuase we're
-		// typically going to get both IN_IGNORED and
-		// IN_DELETE_SELF, so this will likely be called twice
-		// (failing the second time harmlessly)
-		g_hash_table_remove(self->wds, (void *)i->wd);
-
-		*/
+		watch_list_remove(&self->wds, i->wd);
 		goto cleanup;
 	}
 
+	// from here on out we only want to deal with songs
+	if (i->mask & IN_ISDIR)
+		goto cleanup;
+	if (!is_music(path))
+		goto cleanup;
 
-	
-	// stop if file isn't a song
-
-	// handle deleted songs
-	// handle new songs
-	// handle changed songs (most likely tag data changed)
-
+	// if we get here, it means the path was malloced.
+	handle_song_ievent(self, i, path);
 	return;
 cleanup:
-	free(name);
+	if (malloced)
+		free(path);
 }
 
 
