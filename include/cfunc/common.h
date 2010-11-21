@@ -77,37 +77,6 @@ struct ccgi_state {
 	const char *album_list;
 };
 
-struct list_head {
-	struct list_head *next;
-	struct list_head *prev;
-};
-
-#define list_for_each(pos, head)					\
-        for (pos = (head)->next; prefetch(pos->next), pos != (head);	\
-	     pos = pos->next)
-
-// XXX: not thread safe.
-static inline void
-list_add(struct list_head *curr, struct list_head *new)
-{
-	struct list_head *last;
-	last = curr->prev;
-	last->next = new;
-	new->prev = last;
-	new->next = curr;
-	curr->prev = new;
-}
-
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
-
-#define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name)
-
-// from linux kernel
-#define container_of(ptr, type, member) ({		     \
-	const typeof(((type *)0)->member) *__mptr = (ptr);   \
-	(type *)((char *)__mptr - offsetof(type,member) );})
-
 void ccgi_state_init(struct ccgi_state *state);
 
 #endif // _COMMON_H_

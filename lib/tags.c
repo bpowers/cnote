@@ -33,27 +33,25 @@
 
 #define IBUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-static void handle_ievent(struct watch_state *self, struct inotify_event *i);
-static void watch_state_free(struct watch_state *self);
-
-const struct watch_ops default_watch_ops = {
-	.on_change = handle_ievent,
-	._free = watch_state_free,
-};
-
-// nasty global to get around nftw limitations
+// TODO: these should be thread local via pthread keys
+// nasty globals to get around nftw limitations
 static int GLOBAL_ifd;
 static int GLOBAL_flags;
 static GHashTable *GLOBAL_wds;
+static int GLOBAL_count;
+
 
 struct watch_state *
-watch_state_new(const char *dir_name, int iflags, PGconn *conn)
+watch_state_new(const char *dir_name,
+		watch_change_cb callback,
+		int iflags,
+		PGconn *conn)
 {
 	struct watch_state *self;
 
 	self = xmalloc0(sizeof(*self));
-	self->ops = &default_watch_ops;
 	self->dir_name = dir_name;
+	self->on_change = callback;
 	self->iflags = iflags;
 	self->conn = conn;
 
@@ -156,7 +154,7 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 	int watch;
 
 	// only add watches to directories
-	if ((typeflag & FTW_D) == 0)
+	if (!(typeflag & FTW_D))
 		return 0;
 
 	watch = inotify_add_watch(GLOBAL_ifd, fpath, GLOBAL_flags);
@@ -173,44 +171,16 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 static void
 wd_remove_key(gpointer key)
 {
-	free(key);
+	printf("remove key called for %d\n", *(int *)key);
+	fflush(stdout);
+	//free(key);
 }
 static void
 wd_remove_free(gpointer data)
 {
+	printf("remove val called for %s\n", data);
+	fflush(stdout);
 	free(data);
-}
-
-static void
-handle_ievent(struct watch_state *self, struct inotify_event *i)
-{
-	printf("    wd =%2d; ", i->wd);
-	if (i->cookie > 0)
-		printf("cookie =%4d; ", i->cookie);
-
-	printf("mask = ");
-	if (i->mask & IN_ACCESS)        printf("IN_ACCESS ");
-	if (i->mask & IN_ATTRIB)        printf("IN_ATTRIB ");
-	if (i->mask & IN_CLOSE_NOWRITE) printf("IN_CLOSE_NOWRITE ");
-	if (i->mask & IN_CLOSE_WRITE)   printf("IN_CLOSE_WRITE ");
-	if (i->mask & IN_CREATE)        printf("IN_CREATE ");
-	if (i->mask & IN_DELETE)        printf("IN_DELETE ");
-	if (i->mask & IN_DELETE_SELF)   printf("IN_DELETE_SELF ");
-	if (i->mask & IN_IGNORED)       printf("IN_IGNORED ");
-	if (i->mask & IN_ISDIR)         printf("IN_ISDIR ");
-	if (i->mask & IN_MODIFY)        printf("IN_MODIFY ");
-	if (i->mask & IN_MOVE_SELF)     printf("IN_MOVE_SELF ");
-	if (i->mask & IN_MOVED_FROM)    printf("IN_MOVED_FROM ");
-	if (i->mask & IN_MOVED_TO)      printf("IN_MOVED_TO ");
-	if (i->mask & IN_OPEN)          printf("IN_OPEN ");
-	if (i->mask & IN_Q_OVERFLOW)    printf("IN_Q_OVERFLOW ");
-	if (i->mask & IN_UNMOUNT)       printf("IN_UNMOUNT ");
-	printf("\n");
-
-        if (i->len > 0)
-		printf("        name = %s/%s\n",
-		       g_hash_table_lookup(self->wds, (void *)i->wd),
-		       i->name);
 }
 
 void *
@@ -224,7 +194,8 @@ watch_routine(struct watch_state *self)
 
 	fprintf(stderr, "dir name: %s\n", self->dir_name);
 
-	self->wds = g_hash_table_new_full(NULL, NULL, wd_remove_key,
+	self->wds = g_hash_table_new_full(NULL, NULL,
+					  wd_remove_key,
 					  wd_remove_free);
 	if (!self->wds)
 		exit_msg("couldn't allocate self->wds");
@@ -255,13 +226,13 @@ watch_routine(struct watch_state *self)
 			struct inotify_event *event;
 			event = (struct inotify_event *)p;
 
-			handle_ievent(self, event);
+			self->on_change(self, event);
 
 			p += sizeof(*event) + event->len;
 		}
 	}
 
-	self->ops->_free(self);
+	watch_state_free(self);
 
 	return NULL;
 }
