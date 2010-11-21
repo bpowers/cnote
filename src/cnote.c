@@ -255,12 +255,16 @@ main(int argc, char *const argv[])
 	struct evhttp *ev_http;
 	struct event_base *ev_base;
 
-	CONN = PQconnectdb(CONN_INFO);
-
 	program_name = argv[0];
 	addr = DEFAULT_ADDR;
 	port = DEFAULT_PORT;
 	dir = DEFAULT_DIR;
+
+	CONN = PQconnectdb(CONN_INFO);
+	if (PQstatus(CONN) != CONNECTION_OK) {
+		PQfinish(CONN);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
 
 	// process arguments from the command line
 	while ((optc = getopt_long(argc, argv,
@@ -307,7 +311,12 @@ main(int argc, char *const argv[])
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
 
-	watch = watch_state_new(dir, handle_ievent, IN_MASK, PQconnectdb(CONN_INFO));
+	watch = watch_state_new(dir, handle_ievent, IN_MASK,
+				PQconnectdb(CONN_INFO));
+	if (PQstatus(watch->conn) != CONNECTION_OK) {
+		PQfinish(watch->conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
 	pthread_create(&update_thread, NULL, (pthread_routine)watch_routine, (void *)watch);
 
 	// the main event loop
