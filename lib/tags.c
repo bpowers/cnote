@@ -42,6 +42,15 @@ static int GLOBAL_flags;
 static struct watch_list *GLOBAL_wds;
 static int GLOBAL_count;
 
+#define INSERT_SONG \
+	"INSERT INTO music (title, artist, album, track, time, path, hash, modified)" \
+	"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
+
+#define UPDATE_SONG \
+	"UPDATE music SET title = $1, artist = $2, album = $3, track = $4," \
+	"                 time = $5, hash = $7, modified = $8"              \
+	"    WHERE path = $6"
+
 
 struct watch_state *
 watch_state_new(const char *dir_name,
@@ -74,6 +83,107 @@ watch_state_free(struct watch_state *self)
 	free(self);
 }
 
+static bool
+song_exists(PGconn *conn, const char *const short_path)
+{
+	PGresult *res;
+	ExecStatusType status;
+	int rows;
+	const char *query_args[1];
+
+	printf("  rel: '%s'\n", short_path);
+	fflush(stdout);
+
+	static const char *const query_fmt = "SELECT hash"
+		"    FROM music WHERE path = $1";
+
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	query_args[0] = short_path;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);      
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	rows = PQntuples(res);
+
+	PQclear(res);
+
+	if (rows > 1)
+		fprintf(stderr, "more than 1 song registered for path '%s'\n",
+			short_path);
+
+	// if we have rows in the result, it exists.
+	return rows > 0;
+}
+
+static bool
+is_modified(PGconn *conn, const char *const short_path,
+	    const char *const file_path)
+{
+	PGresult *res;
+	ExecStatusType status;
+	int rows;
+	char mtime[26], *last_time;
+	const char *query_args[1];
+	bool ret;
+	struct stat stats;
+
+	// default to true...
+	ret = true;
+
+	stat(file_path, &stats);
+	ctime_r(&stats.st_mtime, mtime);
+	// remove the trailing newline
+	mtime[strlen(mtime)-1] = '\0';
+
+	static const char *const query_fmt = "SELECT modified"
+		"    FROM music WHERE path = $1";
+
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	query_args[0] = short_path;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);      
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	rows = PQntuples(res);
+	last_time = PQgetvalue(res, 0, 0);
+	if (strcmp(mtime, last_time))
+		ret = false;
+
+	PQclear(res);
+
+	if (rows > 1)
+		fprintf(stderr, "more than 1 song registered for path '%s'\n",
+			short_path);
+
+	// if we have rows in the result, it exists.
+	return ret;
+}
 
 void
 process_file(const char *file_path, const char *base_path, PGconn *conn)
@@ -87,9 +197,30 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	struct stat stats;
 	size_t len;
 	const char *query_args[8];
-	static const char query_fmt[] =
-		"INSERT INTO music (title, artist, album, track, time, path, hash, modified)"
-		"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
+	static const char *query_fmt;
+
+	rel_path = file_path;
+	if (base_path) {
+		len = strlen(base_path);
+		if (!strncmp(file_path, base_path, len))
+			// + 1 is for the path seperator
+			rel_path = &file_path[len + 1];
+	}
+
+	if (song_exists(conn, rel_path)) {
+		if (!is_modified(conn, rel_path, file_path)) {
+			printf("  saving from infinite recursion \n");
+			fflush(stdout);
+			return;
+		}
+		printf("  changed\n");
+		fflush(stdout);
+		query_fmt = UPDATE_SONG;
+	} else {
+		printf("  new\n");
+		fflush(stdout);
+		query_fmt = INSERT_SONG;
+	}
 
 	file = taglib_file_new(file_path);
 	if (file == NULL) {
@@ -105,13 +236,6 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 			"%s: WARNING: couldn't open '%s's tags or props.\n",
 			program_name, file_path);
 		return;
-	}
-
-	rel_path = file_path;
-	if (base_path) {
-		len = strlen(base_path);
-		if (!strncmp(file_path, base_path, len))
-			rel_path = &file_path[len];
 	}
 
 	stat(file_path, &stats);
@@ -141,7 +265,7 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	}
 
 	// free the generated sha256 hex string
-	free((void *)query_args[6]);
+	//free((void *)query_args[6]);
 
 	taglib_tag_free_strings();
 	taglib_file_free(file);

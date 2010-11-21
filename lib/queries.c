@@ -155,7 +155,6 @@ query_list(PGconn *conn, const char *query_fmt)
 	LIST_HEAD(list);
 
 	if (PQstatus(conn) != CONNECTION_OK) {
-		PQclear(res);
 		PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
@@ -199,7 +198,6 @@ song_query(struct req *self, const char *query_fmt, const char *name)
 
 	conn = self->conn;
 	if (PQstatus(conn) != CONNECTION_OK) {
-		PQclear(res);
 		PQfinish(conn);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}

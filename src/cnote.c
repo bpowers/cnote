@@ -26,6 +26,7 @@
 #include <cfunc/common.h>
 #include <cfunc/queries.h>
 #include <cfunc/tags.h>
+#include <cfunc/db.h>
 
 #include <pthread.h>
 
@@ -120,6 +121,9 @@ is_music(char *path)
 	return false;
 }
 
+
+// this is the one thread/place from which we'll be updating the DB,
+// the rest should all be reads
 static void
 handle_song_ievent(struct watch_state *self, struct inotify_event *i,
 		   char *path)
@@ -129,28 +133,25 @@ handle_song_ievent(struct watch_state *self, struct inotify_event *i,
 	// short path is the path under '$dir_name/'
 	short_path = &path[strlen(self->dir_name) + 1];
 
+	if (PQstatus(self->conn) != CONNECTION_OK) {
+		PQfinish(self->conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
 	printf("song ievent: %s\n", short_path);
+
+	pg_exec(self->conn, "BEGIN");
 
 	if (i->mask & IN_DELETE ||
 	    i->mask & IN_MOVED_FROM) {
 		printf("  delete\n");
-		fflush(stdout);
-		goto cleanup;
+	} else {
+		process_file(path, self->dir_name, self->conn);
 	}
 
-/*
-	if (i->mask & IN_CLOSE_WRITE ||
-	    i->mask & IN_MOVED_TO) {
-		printf("  new\n");
-		fflush(stdout);
-		return;
-	}
-*/
-
-	printf("  new or changed\n");
 	fflush(stdout);
 
-cleanup:
+	pg_exec(self->conn, "END");
 	free(path);
 }
 
