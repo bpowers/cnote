@@ -171,9 +171,3 @@ free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
 {
 	g_free((gpointer)data);
 }
-
-
-void ccgi_state_init(struct ccgi_state *state)
-{
-	memset(state, 0, sizeof(*state));
-}

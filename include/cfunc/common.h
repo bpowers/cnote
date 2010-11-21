@@ -67,16 +67,4 @@ struct req {
 	PGconn *conn;
 };
 
-struct ccgi_state {
-//	struct ops *ops;
-	int32_t socket;
-	const char *mount_point; // not currently used
-	struct evhttp *ev_http;
-	struct event_base *ev_base;
-	const char *artist_list;
-	const char *album_list;
-};
-
-void ccgi_state_init(struct ccgi_state *state);
-
 #endif // _COMMON_H_

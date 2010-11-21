@@ -212,13 +212,13 @@ main(int argc, char *const argv[])
 	int optc, err;
 	uint16_t port;
 	const char *addr, *dir;
-	struct ccgi_state state;
 	pthread_t update_thread;
 	struct watch_state *watch;
 
-	CONN = PQconnectdb(CONN_INFO);
+	struct evhttp *ev_http;
+	struct event_base *ev_base;
 
-	ccgi_state_init(&state);
+	CONN = PQconnectdb(CONN_INFO);
 
 	program_name = argv[0];
 	addr = DEFAULT_ADDR;
@@ -249,23 +249,23 @@ main(int argc, char *const argv[])
 		}
 	}
 
-	state.ev_base = event_base_new();
-	if (!state.ev_base)
+	ev_base = event_base_new();
+	if (!ev_base)
 		exit_perr("main: event_base_new");
 
-	state.ev_http = evhttp_new(state.ev_base);
-	if (!state.ev_http)
+	ev_http = evhttp_new(ev_base);
+	if (!ev_http)
 		exit_perr("main: evhttp_new");
 
-	err = evhttp_bind_socket(state.ev_http, addr, port);
+	err = evhttp_bind_socket(ev_http, addr, port);
 	if (err)
 		exit_msg("main: couldn't bind to %s:%d", addr, port);
 
 	// set the handlers for the api requests we care about, and set
 	// a generic error handler for everything else
-	evhttp_set_gencb(state.ev_http, (evhttp_cb)handle_unknown, NULL);
-	evhttp_set_cb(state.ev_http, "/artist*", (evhttp_cb)handle_request, &artist_ops);
-	evhttp_set_cb(state.ev_http, "/album*", (evhttp_cb)handle_request, &album_ops);
+	evhttp_set_gencb(ev_http, (evhttp_cb)handle_unknown, NULL);
+	evhttp_set_cb(ev_http, "/artist*", (evhttp_cb)handle_request, &artist_ops);
+	evhttp_set_cb(ev_http, "/album*", (evhttp_cb)handle_request, &album_ops);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
@@ -274,7 +274,7 @@ main(int argc, char *const argv[])
 	pthread_create(&update_thread, NULL, (pthread_routine)watch_routine, (void *)watch);
 
 	// the main event loop
-	event_base_dispatch(state.ev_base);
+	event_base_dispatch(ev_base);
 
 	return 0;
 }
