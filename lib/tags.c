@@ -167,6 +167,17 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 }
 
 
+// callback for use with nftw
+static int
+count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
+	  int typeflag, struct FTW *ftwbuf __unused__)
+{
+	if ((typeflag & FTW_D))
+		++GLOBAL_count;
+	return 0;
+}
+
+
 // for our watch->dirname hash table
 static void
 wd_remove_key(gpointer key)
@@ -188,6 +199,7 @@ watch_routine(struct watch_state *self)
 {
 	char buf[IBUF_LEN];
 	ssize_t len;
+	int count;
 
 	if (!self)
 		exit_msg("update_routine called with null self");
@@ -203,6 +215,12 @@ watch_routine(struct watch_state *self)
 	self->ifd = inotify_init();
 	if (self->ifd == -1)
 		exit_perr("inotify_init");
+
+	GLOBAL_count = 0;
+	nftw(self->dir_name, count_dirs, 32, 0);
+	count = GLOBAL_count;
+	printf("%d dirs\n", GLOBAL_count);
+
 
 	GLOBAL_ifd = self->ifd;
 	GLOBAL_flags = self->iflags;
