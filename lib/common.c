@@ -171,3 +171,57 @@ free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
 {
 	g_free((gpointer)data);
 }
+
+
+struct watch_list *watch_list_new(void)
+{
+	return xmalloc0(sizeof(struct watch_list));
+}
+
+int
+watch_list_init(struct watch_list *self, int len)
+{
+	if (!self)
+		exit_msg("watch_list_init null self");
+	if (len <= 0)
+		exit_msg("watch_list_init invalid len %d", len);
+
+	self->len = len;
+	self->slab = xmalloc0(len * sizeof(char *));
+
+	return 0;
+}
+
+void
+watch_list_free(struct watch_list *self)
+{
+	if (!self)
+		exit_msg("watch_list_free null self");
+	if (self->slab)
+		free(self->slab);
+	free(self);
+}
+
+char *
+watch_list_get(struct watch_list *self, int wd)
+{
+	if (wd < 0 || wd > self->len)
+		exit_msg("invalid wd: %d (len: %u)", wd, self->len);
+
+	return self->slab[wd];
+}
+
+int
+watch_list_put(struct watch_list *self, int wd, char *path)
+{
+	if (self->slab[wd])
+		free(self->slab[wd]);
+	self->slab[wd] = path;
+	return 0;
+}
+
+int
+watch_list_remove(struct watch_list *self, int wd)
+{
+	return watch_list_put(self, wd, NULL);
+}

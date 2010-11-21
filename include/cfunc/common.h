@@ -67,4 +67,16 @@ struct req {
 	PGconn *conn;
 };
 
+struct watch_list {
+	char **slab;
+	int len;
+};
+
+struct watch_list *watch_list_new(void);
+int watch_list_init(struct watch_list *self, int len);
+void watch_list_free(struct watch_list *self);
+char *watch_list_get(struct watch_list *self, int wd);
+int watch_list_put(struct watch_list *self, int wd, char *path);
+int watch_list_remove(struct watch_list *self, int wd);
+
 #endif // _COMMON_H_
