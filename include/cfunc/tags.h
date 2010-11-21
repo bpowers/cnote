@@ -35,5 +35,6 @@ void watch_state_free(struct watch_state *self);
 
 void *watch_routine(struct watch_state *self);
 void process_file(const char *file_path, const char *base_path, PGconn *conn);
+void delete_file(const char *rel_path, PGconn *conn);
 
 #endif // _TAGS_H_

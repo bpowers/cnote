@@ -144,7 +144,7 @@ handle_song_ievent(struct watch_state *self, struct inotify_event *i,
 
 	if (i->mask & IN_DELETE ||
 	    i->mask & IN_MOVED_FROM) {
-		printf("  delete\n");
+		delete_file(short_path, self->conn);
 	} else {
 		process_file(path, self->dir_name, self->conn);
 	}

@@ -42,13 +42,13 @@ static int GLOBAL_flags;
 static struct watch_list *GLOBAL_wds;
 static int GLOBAL_count;
 
-#define INSERT_SONG \
+#define INSERT_SONG							\
 	"INSERT INTO music (title, artist, album, track, time, path, hash, modified)" \
 	"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
 
-#define UPDATE_SONG \
+#define UPDATE_SONG							\
 	"UPDATE music SET title = $1, artist = $2, album = $3, track = $4," \
-	"                 time = $5, hash = $7, modified = $8"              \
+	"                 time = $5, hash = $7, modified = $8"		\
 	"    WHERE path = $6"
 
 
@@ -91,9 +91,6 @@ song_exists(PGconn *conn, const char *const short_path)
 	int rows;
 	const char *query_args[1];
 
-	printf("  rel: '%s'\n", short_path);
-	fflush(stdout);
-
 	static const char *const query_fmt = "SELECT hash"
 		"    FROM music WHERE path = $1";
 
@@ -106,7 +103,7 @@ song_exists(PGconn *conn, const char *const short_path)
 	query_args[0] = short_path;
 	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
 			   NULL, 0);
-	status = PQresultStatus(res);      
+	status = PQresultStatus(res);
 	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
 	{
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
@@ -160,7 +157,7 @@ is_modified(PGconn *conn, const char *const short_path,
 	query_args[0] = short_path;
 	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
 			   NULL, 0);
-	status = PQresultStatus(res);      
+	status = PQresultStatus(res);
 	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
 	{
 		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
@@ -208,11 +205,8 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	}
 
 	if (song_exists(conn, rel_path)) {
-		if (!is_modified(conn, rel_path, file_path)) {
-			printf("  saving from infinite recursion \n");
-			fflush(stdout);
+		if (!is_modified(conn, rel_path, file_path))
 			return;
-		}
 		printf("  changed\n");
 		fflush(stdout);
 		query_fmt = UPDATE_SONG;
@@ -271,6 +265,41 @@ process_file(const char *file_path, const char *base_path, PGconn *conn)
 	taglib_file_free(file);
 }
 
+void
+delete_file(const char *rel_path, PGconn *conn)
+{
+	PGresult *res;
+	ExecStatusType status;
+	const char *query_args[1];
+
+	printf("  deleting: '%s'\n", rel_path);
+	fflush(stdout);
+
+	static const char *const query_fmt = "DELETE FROM music "
+		"    WHERE path = $1";
+
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+
+	query_args[0] = rel_path;
+	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
+			   NULL, 0);
+	status = PQresultStatus(res);
+	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
+	{
+		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
+			status, PQerrorMessage(conn));
+		PQclear(res);
+		PQfinish(conn);
+		exit_msg("");
+	}
+
+	PQclear(res);
+}
+
 
 // callback for use with nftw
 static int
@@ -296,7 +325,7 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 // callback for use with nftw
 static int
 count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
-	  int typeflag, struct FTW *ftwbuf __unused__)
+	   int typeflag, struct FTW *ftwbuf __unused__)
 {
 	if ((typeflag & FTW_D))
 		++GLOBAL_count;
