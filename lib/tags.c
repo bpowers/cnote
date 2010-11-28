@@ -58,10 +58,10 @@ is_valid_cb(struct dirwatch *self __unused__, const char *path __unused__,
 	if (!ext)
 		return false;
 	ext++;
-	if (strcmp(ext, "mp3") ||
-	    strcmp(ext, "m4a") ||
-	    strcmp(ext, "ogg") ||
-	    strcmp(ext, "flac"))
+	if (strcmp(ext, "mp3") == 0 ||
+	    strcmp(ext, "m4a") == 0 ||
+	    strcmp(ext, "ogg") == 0 ||
+	    strcmp(ext, "flac") == 0)
 		return true;
 	return false;
 }
@@ -193,7 +193,7 @@ process_file(const char *full_path, const char *rel_path, PGconn *conn)
 		fflush(stdout);
 		query_fmt = UPDATE_SONG;
 	} else {
-		printf("  new\n");
+		printf("  new '%s'\n", rel_path);
 		fflush(stdout);
 		query_fmt = INSERT_SONG;
 	}
@@ -252,10 +252,19 @@ change_cb(struct dirwatch *self, const char *path,
 	  const char *dir __unused__, const char *file __unused__)
 {
 	const char *rel_path;
+	PGconn *conn;
 
+	conn = self->data;
 	// rel path is the path under '$dir_name/'
 	rel_path = &path[strlen(self->dir_name) + 1];
-	process_file(path, rel_path, self->data);
+
+	if (PQstatus(conn) != CONNECTION_OK) {
+		PQfinish(conn);
+		exit_msg("%s: couldn't connect to postgres", program_name);
+	}
+	pg_exec(conn, "BEGIN");
+	process_file(path, rel_path, conn);
+	pg_exec(conn, "END");
 }
 
 void

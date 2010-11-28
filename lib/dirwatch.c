@@ -30,6 +30,8 @@
 #include <time.h>
 #include <sys/stat.h>
 
+#include <alloca.h>
+
 
 #define IBUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 // the amount of buffer watch descriptors to allocate
@@ -45,6 +47,7 @@ static int GLOBAL_ifd;
 static int GLOBAL_flags;
 static struct watch_list *GLOBAL_wds;
 static int GLOBAL_count;
+static struct dirwatch *GLOBAL_self;
 
 
 //static struct watch_list *watch_list_new(void);
@@ -104,7 +107,6 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 	return 0;
 }
 
-
 // callback for use with nftw
 static int
 count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
@@ -112,6 +114,42 @@ count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
 {
 	if ((typeflag & FTW_D))
 		++GLOBAL_count;
+	return 0;
+}
+
+// callback for use with nftw
+static int
+on_startup(const char *fpath , const struct stat *sb __unused__,
+	   int typeflag, struct FTW *ftwbuf __unused__)
+{
+	struct dirwatch *self;
+	const char *file;
+	char *dir;
+	size_t len;
+
+	if (typeflag & FTW_D)
+		return 0;
+
+	self = GLOBAL_self;
+
+	// can't fail on 'NIX because every full path should start with a '/'
+	file = strrchr(fpath, '/') + 1;
+	len = file - fpath;
+	// alloca can't fail (but can cause stack overflow...)
+	dir = alloca(len);
+	memcpy(dir, fpath, len-1);
+	// add a terminating null to the alloca'd string.
+	dir[len - 1] = '\0';
+
+	// and since we've filtered out events by now that happen to
+	// watch descriptors, we're sure that file isn't null (since
+	// the struct inotify_event only has a 0 length name field when
+	// the event refers to the watch descriptor itself).
+	if (self->is_valid && !self->is_valid(self, fpath, dir, file))
+		return 0;
+
+	if (self->is_modified(self, fpath, dir, file))
+		self->on_change(self, fpath, dir, file);
 	return 0;
 }
 
@@ -173,10 +211,6 @@ handle_ievent(struct dirwatch *self, struct inotify_event *i)
 	if (self->is_valid && !self->is_valid(self, full_path, dir, file))
 		goto cleanup;
 
-	// skip if a valid callback is defined & fails
-	if (self->is_valid && !self->is_valid(self, full_path, dir, file))
-		goto cleanup;
-
 	if (i->mask & IN_DELETE ||
 	    i->mask & IN_MOVED_FROM)
 		self->on_delete(self, full_path, dir, file);
@@ -227,6 +261,9 @@ watch_routine(struct dirwatch *self)
 	fflush(stdout);
 
 	// TODO: nftw on every file
+	GLOBAL_self = self;
+	nftw(self->dir_name, on_startup, 32, 0);
+	GLOBAL_self = NULL;
 
 	// check for changes forever
 	while (true) {
