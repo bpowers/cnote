@@ -10,31 +10,27 @@
 #ifndef _TAGS_H_
 #define _TAGS_H_
 
-#include <glib.h>
-#include <libpq-fe.h>
+#include <cfunc/dirwatch.h>
 
-struct inotify_event;
 
-struct watch_state {
-	void (*on_change)(struct watch_state *self, struct inotify_event *i);
-	const char *dir_name;
-	struct watch_list wds;
-	PGconn *conn;
-	int iflags;
-	int ifd;
-};
+bool is_valid_cb(struct dirwatch *self,
+		 const char *path,
+		 const char *dir,
+		 const char *file);
+bool is_modified_cb(struct dirwatch *self,
+		    const char *path,
+		    const char *dir,
+		    const char *file);
 
-typedef void (*watch_change_cb)(struct watch_state *self,
-				struct inotify_event *i);
+void delete_cb(struct dirwatch *self,
+	       const char *path,
+	       const char *dir,
+	       const char *file);
+void change_cb(struct dirwatch *self,
+	       const char *path,
+	       const char *dir,
+	       const char *file);
 
-struct watch_state *watch_state_new(const char *dir_name,
-				    watch_change_cb callback,
-				    int iflags,
-				    PGconn *conn);
-void watch_state_free(struct watch_state *self);
-
-void *watch_routine(struct watch_state *self);
-void process_file(const char *file_path, const char *base_path, PGconn *conn);
-void delete_file(const char *rel_path, PGconn *conn);
+void cleanup_cb(struct dirwatch *self);
 
 #endif // _TAGS_H_

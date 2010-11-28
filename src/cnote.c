@@ -25,6 +25,7 @@
 //#include <cfunc/cfunc.h>
 #include <cfunc/common.h>
 #include <cfunc/queries.h>
+#include <cfunc/dirwatch.h>
 #include <cfunc/tags.h>
 #include <cfunc/db.h>
 
@@ -33,8 +34,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <sys/inotify.h>
 
 #include <signal.h>
 #include <unistd.h>
@@ -50,10 +49,6 @@
 #include <libpq-fe.h>
 
 PGconn *CONN;
-
-// don't need IN_DELETE_SELF because we get IN_IGNORED for free
-#define IN_MASK	\
-	(IN_CLOSE_WRITE | IN_CREATE | IN_MOVE | IN_DELETE)
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
@@ -92,7 +87,6 @@ static inline void set_content_type_json(struct evhttp_request *req);
 // callback typedef
 typedef void (*evhttp_cb)(struct evhttp_request *, void *);
 
-
 static struct req *
 req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 {
@@ -105,117 +99,6 @@ req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
 }
 
 
-static bool
-is_music(char *path)
-{
-	char *ext;
-	ext = strrchr(path, '.');
-	if (!ext)
-		return false;
-	ext++;
-	if (strcmp(ext, "mp3") ||
-	    strcmp(ext, "m4a") ||
-	    strcmp(ext, "ogg") ||
-	    strcmp(ext, "flac"))
-		return true;
-	return false;
-}
-
-
-// this is the one thread/place from which we'll be updating the DB,
-// the rest should all be reads
-static void
-handle_song_ievent(struct watch_state *self, struct inotify_event *i,
-		   char *path)
-{
-	char *short_path;
-
-	// short path is the path under '$dir_name/'
-	short_path = &path[strlen(self->dir_name) + 1];
-
-	if (PQstatus(self->conn) != CONNECTION_OK) {
-		PQfinish(self->conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-
-	printf("song ievent: %s\n", short_path);
-
-	pg_exec(self->conn, "BEGIN");
-
-	if (i->mask & IN_DELETE ||
-	    i->mask & IN_MOVED_FROM) {
-		delete_file(short_path, self->conn);
-	} else {
-		process_file(path, self->dir_name, self->conn);
-	}
-
-	fflush(stdout);
-
-	pg_exec(self->conn, "END");
-	free(path);
-}
-
-static void
-handle_ievent(struct watch_state *self, struct inotify_event *i)
-{
-	bool malloced;
-	char *path;
-	int err;
-
-	// get full path
-	if (i->len > 0) {
-		err = asprintf(&path, "%s/%s",
-			       watch_list_get(&self->wds, i->wd),
-			       i->name);
-		if (err == -1)
-			exit_perr("handle_ievent: asprintf");
-		malloced = true;
-	} else {
-		path = watch_list_get(&self->wds, i->wd);
-		malloced = false;
-	}
-
-	// handle new directory creation, or a directory move
-	if (i->mask & IN_CREATE ||
-	    (i->mask & IN_MOVED_TO && i->mask & IN_ISDIR)) {
-		int watch;
-		// we only care about create events for directories,
-		// because create events for files are followed by
-		// IN_CLOSE_WRITE events.
-		if (!(i->mask & IN_ISDIR))
-			goto cleanup;
-
-		watch = inotify_add_watch(self->ifd, path, self->iflags);
-		if (watch == -1)
-			exit_perr("inotify error");
-
-		watch_list_put(&self->wds, watch, path);
-
-		// watch_list now owns name, so don't free it;
-		return;
-	}
-
-	if (i->mask & (IN_IGNORED | IN_DELETE_SELF) ||
-	    (i->mask & IN_MOVED_FROM && i->mask & IN_ISDIR)) {
-		watch_list_remove(&self->wds, i->wd);
-		goto cleanup;
-	}
-
-	// from here on out we only want to deal with songs
-	if (i->mask & IN_ISDIR)
-		goto cleanup;
-	if (!is_music(path))
-		goto cleanup;
-
-	// if we get here, it means the path was malloced.
-	handle_song_ievent(self, i, path);
-	return;
-cleanup:
-	if (malloced)
-		free(path);
-}
-
-
 //===--- this is where the magic starts... ------------------------------===//
 int
 main(int argc, char *const argv[])
@@ -223,8 +106,7 @@ main(int argc, char *const argv[])
 	int optc, err;
 	uint16_t port;
 	const char *addr, *dir;
-	pthread_t update_thread;
-	struct watch_state *watch;
+	struct dirwatch *watch;
 
 	struct evhttp *ev_http;
 	struct event_base *ev_base;
@@ -285,13 +167,19 @@ main(int argc, char *const argv[])
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
 
-	watch = watch_state_new(dir, handle_ievent, IN_MASK,
-				PQconnectdb(CONN_INFO));
-	if (PQstatus(watch->conn) != CONNECTION_OK) {
-		PQfinish(watch->conn);
+	watch = dirwatch_new();
+	watch->is_valid = is_valid_cb;
+	watch->is_modified = is_modified_cb;
+	watch->on_delete = delete_cb;
+	watch->on_change = change_cb;
+	watch->cleanup = cleanup_cb;
+	watch->dir_name = dir;
+	watch->data = PQconnectdb(CONN_INFO);
+	if (PQstatus((PGconn *)watch->data) != CONNECTION_OK) {
+		PQfinish((PGconn *)watch->data);
 		exit_msg("%s: couldn't connect to postgres", program_name);
 	}
-	pthread_create(&update_thread, NULL, (pthread_routine)watch_routine, (void *)watch);
+	dirwatch_init(watch);
 
 	// the main event loop
 	event_base_dispatch(ev_base);
