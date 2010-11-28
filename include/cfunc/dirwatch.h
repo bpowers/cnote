@@ -33,6 +33,9 @@ struct dirwatch {
 			    const char *path,
 			    const char *dir,
 			    const char *file);
+// don't have on_new yet, probably will require recording a list of
+// IN_CREATE'ed files, and checking that list when files are
+// IN_CLOSE_WRITE'ed
 //	void (*on_new)(struct dirwatch *self,
 //		       const char *path,
 //		       const char *dir,
