@@ -1,21 +1,24 @@
-#!/usr/bin/env python2
-from support import config
+#!/usr/bin/env python
+#-*- mode: python; -*-
+from support.config import ConfigBuilder
 
-ENV = config.new_env()
+NAME = 'cnote'
+VERSION = '0.4.0'
 
-# make the requires below prettier
-require = lambda lib='', program='pkg-config': config.require(ENV, lib, program)
+c = ConfigBuilder()
 
-require('libevent >= 2.0')
-#require('openssl')
-require('glib-2.0')
-require('taglib_c')
+c.config('version', VERSION)
+c.config('canonical-name', NAME)
+c.config('package', NAME)
+c.config('package-bugreport', 'bobbypowers@gmail.com')
 
-ENV['cflags'] += ' -g -pthread'
-ENV['libs'] += ' -lpq'
-ENV['ldflags'] += ' -Wl,--no-add-needed'
-#ENV['ld'] = 'ld.gold'
+c.require('libevent >= 2.0')
+c.require('glib-2.0')
+c.require('taglib_c')
 
-config.prefer_cc(ENV, 'clang')
+c.append('cflags', '-g -O0 -pthread -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE=1')
+c.append('ldflags', '-Wl,--no-add-needed')
 
-config.generate_config(ENV, 'config.mk')
+c.prefer_cc('clang')
+
+c.generate()

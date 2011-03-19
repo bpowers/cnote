@@ -1,6 +1,9 @@
-from sys import stderr
+from sys import stderr, argv
 from subprocess import Popen, PIPE
-from os import environ
+from os import environ, getcwd
+from datetime import datetime
+from os.path import dirname, samefile, join
+from shutil import copyfile
 
 LOCAL_PKGCONFIG = '/usr/local/lib/pkgconfig'
 PKG_PATH = 'PKG_CONFIG_PATH'
@@ -26,44 +29,72 @@ def run_cmd(cmd, effect='stdout'):
         else:
             return call.returncode
 
-def require(env, lib='', program='pkg-config'):
-    path = run_cmd('which %s' % (program))
-    if len(path) is 0:
-        print >> stderr, 'required program "%s" not found.' % program
-        exit(1)
-
-    # single-quote stuff for pkg-config
-    if len(lib) > 0:
-        lib = "'%s'" % lib
-
-    if len(lib) > 0:
-        # assumes a pkg-config-like program
-        ret = run_cmd('%s --exists %s' % (program, lib), 'returncode')
-        if ret != 0:
-            print >> stderr, 'required library %s not found' % lib
-            exit(1)
-
-    for info in ['cflags', 'libs', 'ldflags']:
-        if info in env:
-            existing = env[info]
-        else:
-            existing = ''
-        new = run_cmd('%s --%s %s' % (program, info, lib)).strip()
-        env[info] = existing + ' ' + new
-
-def generate_config(env, fname):
-    with open(fname, 'w') as config:
-        for info in env:
-            config.write('%s := %s\n' % (info.upper(), env[info].strip()))
-
-def new_env():
+def _new_env():
     return {
         'cflags': '',
         'ldflags': '',
         'libs': '',
     }
 
-def prefer_cc(env, cc):
-    path = run_cmd('which %s' % (cc))
-    if len(path) > 0:
-        env['cc'] = cc
+class ConfigBuilder:
+    def __init__(self):
+        self.env = _new_env()
+        self.defs = {}
+        self.defs['year'] = str(datetime.now().year)
+
+    def config(self, key, val):
+        self.defs[key] = val
+
+    def require(self, lib='', program='pkg-config'):
+        env = self.env
+        path = run_cmd('which %s' % (program))
+        if len(path) is 0:
+            print >> stderr, 'required program "%s" not found.' % program
+            exit(1)
+
+        # single-quote stuff for pkg-config
+        if len(lib) > 0:
+            lib = "'%s'" % lib
+
+        if len(lib) > 0:
+            # assumes a pkg-config-like program
+            ret = run_cmd('%s --exists %s' % (program, lib), 'returncode')
+            if ret != 0:
+                print >> stderr, 'required library %s not found' % lib
+                exit(1)
+
+        for info in ['cflags', 'libs', 'ldflags']:
+            if info in env:
+                existing = env[info]
+            else:
+                existing = ''
+            new = run_cmd('%s --%s %s' % (program, info, lib)).strip()
+            env[info] = existing + ' ' + new
+
+    def generate(self, fname='config.mk'):
+        with open(fname, 'w') as config:
+            for info in self.env:
+                config.write('%s := %s\n' % (info.upper(),
+                                             self.env[info].strip()))
+        with open('config.h', 'w') as config:
+            config.write('#ifndef _CONFIG_H_\n')
+            config.write('#define _CONFIG_H_\n\n')
+            for var in self.defs:
+                config.write('const char %s[] = "%s";\n' %
+                             (var.upper().replace('-', '_'), self.defs[var]))
+            config.write('\n#endif // _CONFIG_H_\n')
+
+        src_dir = dirname(argv[0])
+        if not samefile(src_dir, getcwd()):
+            copyfile(join(src_dir, 'Makefile'), 'Makefile')
+
+
+    def append(self, var, val):
+        self.env[var] += ' ' + val
+
+    def prefer_cc(self, cc):
+        path = run_cmd('which %s' % (cc))
+        if len(path) > 0:
+            self.env['cc'] = cc
+        else:
+            print 'warning: %s not found, using default cc' % cc
