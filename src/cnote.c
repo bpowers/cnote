@@ -46,9 +46,9 @@
 
 #include <glib.h>
 
-#include <libpq-fe.h>
+#include <sqlite3.h>
 
-PGconn *CONN;
+sqlite3 *db;
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";

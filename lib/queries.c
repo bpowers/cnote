@@ -6,7 +6,7 @@
 
 #include <glib.h>
 
-#include <libpq-fe.h>
+#include <sqlite3.h>
 
 #define ALLOWED_CHARS " \t\r\n'/()!,*&#:"
 

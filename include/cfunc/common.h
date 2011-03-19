@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <libpq-fe.h>
+#include <sqlite3.h>
 
 // the '!!' is from Love's LSP book.  not quite sure why they're
 // desirable.  The ones listed on KernelTrap don't have them.
@@ -64,7 +64,7 @@ struct ops {
 struct req {
 	struct ops *ops;
 	struct evhttp_request *req;
-	PGconn *conn;
+	sqlite3 *db;
 };
 
 #endif // _COMMON_H_
