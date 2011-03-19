@@ -10,7 +10,7 @@
 #ifndef _DB_H_
 #define _DB_H_
 
-#include <libpq-fe.h>
+#include <sqlite3.h>
 
 PGresult *pg_exec(PGconn *conn, const char *query);
 

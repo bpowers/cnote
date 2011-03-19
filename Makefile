@@ -16,7 +16,7 @@ WARNFLAGS := \
 #        -Wunsafe-loop-optimizations
 
 # look for include files in each of the modules
-CFLAGS += $(patsubst %,-I%,$(MODULES))
+CFLAGS += $(patsubst %,-I%,$(MODULES)) -I.
 CFLAGS += -std=gnu99 -Iinclude $(WARNFLAGS)
 # each module will add to this
 SRC :=
@@ -26,10 +26,9 @@ include $(patsubst %,%/module.mk,$(MODULES))
 OBJ := $(patsubst %.c,%.o,$(filter %.c,$(SRC))) \
        $(patsubst %.y,%.o,$(filter %.y,$(SRC)))
 
-# link the program
-src/cnote: $(OBJ)
-	@echo "  LD    $@"
-	$(CC) -o $@ $(OBJ) $(LIBS) $(CFLAGS) $(LDFLAGS)
+TARGETS := test/test_common src/cnote
+
+all: $(TARGETS)
 
 # clear out all suffixes
 .SUFFIXES:
@@ -48,9 +47,14 @@ src/cnote: $(OBJ)
 # include the C include dependencies
 -include $(OBJ:.o=.d)
 
-TARGETS := src/cnote
+# link the program
+src/cnote: $(OBJ)
+	@echo "  LD    $@"
+	$(CC) -o $@ $(OBJ) $(LIBS) $(CFLAGS) $(LDFLAGS)
 
-all: $(TARGETS)
+test/test_common:
+	@echo "  LD    $@"
+	$(CC) -o $@ test/test_common.c $(LIBS) $(CFLAGS) -Iinclude/cfunc $(LDFLAGS)
 
 clean:
 	find . -name "*.o" | xargs rm -f

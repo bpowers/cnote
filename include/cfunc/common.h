@@ -36,22 +36,7 @@ typedef void *(*pthread_routine)(void *);
 // backlog arg for listen(2); max clients to keep in queue
 extern const int BACKLOG;
 extern const char *program_name;
-
-// allocates memory or exits
-void *xmalloc0(size_t size);
-void *xmalloc(size_t size);
-
-// passed to evbuffer_add_reference as a function to call when the
-// buffer it points to isn't referenced anymore.
-void free_cb(const void *data, size_t datalen, void *extra);
-
-// calls perror with msg and exits, indicating failure
-void exit_perr(const char *msg_fmt, ...);
-// prints msg to stderr and exits, indicating failure
-void exit_msg(const char *msg_fmt, ...);
-
-//int sha256(uint8_t *hash, void *data, size_t len);
-const char *sha256_hex_file(const char *path, size_t len);
+extern int verbosity;
 
 struct req;
 struct evhttp_request;

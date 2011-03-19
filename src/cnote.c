@@ -48,11 +48,11 @@
 
 #include <sqlite3.h>
 
-sqlite3 *db;
+sqlite3 *DB;
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
-static const char CONN_INFO[] = "dbname = cmusic";
+static const char CONN_INFO[] = "/home/bpowers/";
 static const char DEFAULT_DIR[] = "/var/unsecure/music";
 
 // TODO: should be stuck into a config.h eventually
