@@ -32,7 +32,7 @@ START_TEST(test_wordexp)
 	wordexp("~", &p, 0);
 	w = p.we_wordv;
 	for (i = 0; i < p.we_wordc; i++)
-		printf("%s\n", w[i]);
+		fail_if(!w[i] || w[i][0] != '/', "wordexp cant expand ~");
 	wordfree(&p);
 }
 END_TEST

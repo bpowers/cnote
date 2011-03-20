@@ -54,7 +54,7 @@ src/cnote: $(OBJ)
 
 test/test_common:
 	@echo "  LD    $@"
-	$(CC) -o $@ test/test_common.c $(LIBS) $(CFLAGS) -Iinclude/cfunc $(LDFLAGS)
+	$(CC) -o $@ test/test_common.c $(LIBS) $(CFLAGS) -Iinclude/cfunc $(LDFLAGS) -lcheck
 
 clean:
 	find . -name "*.o" | xargs rm -f

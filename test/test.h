@@ -12,11 +12,11 @@
 
 #include <check.h>
 
+// 	verbosity += 2;							
 
 #define RUN_TESTS(suite) int main(int argc __unused__, char *argv[] __unused__) {	\
 	int number_failed;						\
 									\
-	verbosity += 2;							\
 									\
 	mkdir("test-data", S_755);					\
 									\
