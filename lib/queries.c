@@ -1,6 +1,7 @@
-#include <cfunc/queries.h>
-#include <cfunc/common.h>
-#include <cfunc/list.h>
+#include "queries.h"
+#include "common.h"
+#include "utils.h"
+#include "list.h"
 
 #include <stdlib.h>
 
@@ -10,8 +11,7 @@
 
 #define ALLOWED_CHARS " \t\r\n'/()!,*&#:"
 
-static inline PGresult *pg_exec(PGconn *conn, const char *query);
-static char *query_list(PGconn *conn, const char *query_fmt);
+static char *query_list(sqlite3 *conn, const char *query_fmt);
 static char *song_query(struct req *self, const char *query_fmt, const char *name);
 
 static char *artist_list(struct req *self);
@@ -41,7 +41,7 @@ info_song_new(const char *title, const char *artist, const char *album,
 	      const char *track, const char *path)
 {
 	// in 1 allocation get both info and song, one after another.
-	struct info *ret = xmalloc0(sizeof(struct info) + sizeof(struct song));
+	struct info *ret = xcalloc(sizeof(struct info) + sizeof(struct song));
 	struct song *song = (struct song *)&ret[1];
 
 	ret->ops = &json_ops;
@@ -62,7 +62,7 @@ static struct info *
 info_string_new(const char *name)
 {
 	// in 1 allocation get both info and song, one after another.
-	struct info *ret = xmalloc0(sizeof(struct info));
+	struct info *ret = xcalloc(sizeof(struct info));
 
 	ret->ops = &json_ops;
 	ret->type = STRING;
@@ -106,7 +106,7 @@ info_list_destroy(struct list_head *head)
 static char *
 artist_list(struct req *self)
 {
-	return query_list(self->conn, "SELECT DISTINCT artist FROM music ORDER BY artist");
+	return query_list(self->db, "SELECT DISTINCT artist FROM music ORDER BY artist");
 }
 
 
@@ -124,7 +124,7 @@ artist_query(struct req *self, const char *artist)
 static char *
 album_list(struct req *self)
 {
-	return query_list(self->conn, "SELECT DISTINCT album FROM music ORDER BY album");
+	return query_list(self->db, "SELECT DISTINCT album FROM music ORDER BY album");
 }
 
 
@@ -146,7 +146,7 @@ album_query(struct req *self, const char *album)
 // always a (JSON) list of (quoted) strings.  Its used by both the
 // artist_list and album_list functions.
 static char *
-query_list(PGconn *conn, const char *query_fmt)
+query_list(sqlite3 *db, const char *query_fmt)
 {
 	PGresult *res;
 	int rows, len;
@@ -173,7 +173,7 @@ query_list(PGconn *conn, const char *query_fmt)
 
 	// the +1 is for the trailing null byte.
 	len = list_length(&list) + 1;
-	result = xmalloc0(len);
+	result = xcalloc(len);
 	list_jsonify(&list, result);
 
 	info_list_destroy(&list);
@@ -234,7 +234,7 @@ song_query(struct req *self, const char *query_fmt, const char *name)
 
 	// the +1 is for the trailing null byte.
 	len = list_length(&list) + 1;
-	result = xmalloc0(len);
+	result = xcalloc(len);
 	list_jsonify(&list, result);
 
 	info_list_destroy(&list);

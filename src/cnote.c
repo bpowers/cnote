@@ -22,12 +22,13 @@
  *
  *===--------------------------------------------------------------------===//
  */
-//#include <cfunc/cfunc.h>
-#include <cfunc/common.h>
-#include <cfunc/queries.h>
-#include <cfunc/dirwatch.h>
-#include <cfunc/tags.h>
-#include <cfunc/db.h>
+#include "config.h"
+
+#include "common.h"
+#include "queries.h"
+#include "dirwatch.h"
+#include "tags.h"
+#include "db.h"
 
 #include <pthread.h>
 
@@ -54,13 +55,6 @@ static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "/home/bpowers/";
 static const char DEFAULT_DIR[] = "/var/unsecure/music";
-
-// TODO: should be stuck into a config.h eventually
-const char CANONICAL_NAME[] = "cnote";
-const char PACKAGE[] = "cnote";
-const char VERSION[] = "0.0.1";
-const char YEAR[] = "2011";
-const char PACKAGE_BUGREPORT[] = "bobbypowers@gmail.com";
 
 // global var available to various functions that want to report status
 const char *program_name;

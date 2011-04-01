@@ -29,7 +29,7 @@
 #include <libgen.h>
 
 #include <event2/event.h>
-
+#include <glib.h>
 
 // backlog arg for listen(2); max clients to keep in queue
 const int BACKLOG = 256;
@@ -130,6 +130,37 @@ exit_perr(const char *err_fmt, ...)
 }
 
 
+/*----------------------------------------------------------------------
+ * Portable function to set a socket into nonblocking mode.
+ * Calling this on a socket causes all future read() and write() calls on
+ * that socket to do only as much as they can immediately, and return
+ * without waiting.
+ * If no data can be read or written, they return -1 and set errno
+ * to EAGAIN (or EWOULDBLOCK).
+ * Thanks to Bjorn Reese for this code.
+ *
+ * from:
+ * http://www.kegel.com/dkftpbench/nonblocking.html (<3 Dan Kegel)
+ *--------------------------------------------------------------------*/
+int set_nonblocking(int fd)
+{
+	int flags;
+
+// If they have O_NONBLOCK, use the Posix way to do it
+#if defined(O_NONBLOCK)
+	// Fixme: O_NONBLOCK is defined but broken on SunOS 4.1.x and
+	// AIX 3.2.5.
+	if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+		flags = 0;
+	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+#else
+	// Otherwise, use the old way of doing it
+	flags = 1;
+	return ioctl(fd, FIOBIO, &flags);
+#endif
+}
+
+
 int
 get_tcp_socket(const char *addr, const char *port)
 {
@@ -202,38 +233,6 @@ event_add_w_timeout(struct event *ev, long int seconds)
 	timeout.tv_usec = 0;
 
 	return event_add(ev, &timeout);
-}
-
-
-
-/*----------------------------------------------------------------------
- * Portable function to set a socket into nonblocking mode.
- * Calling this on a socket causes all future read() and write() calls on
- * that socket to do only as much as they can immediately, and return
- * without waiting.
- * If no data can be read or written, they return -1 and set errno
- * to EAGAIN (or EWOULDBLOCK).
- * Thanks to Bjorn Reese for this code.
- *
- * from:
- * http://www.kegel.com/dkftpbench/nonblocking.html (<3 Dan Kegel)
- *--------------------------------------------------------------------*/
-int set_nonblocking(int fd)
-{
-	int flags;
-
-// If they have O_NONBLOCK, use the Posix way to do it
-#if defined(O_NONBLOCK)
-	// Fixme: O_NONBLOCK is defined but broken on SunOS 4.1.x and
-	// AIX 3.2.5.
-	if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
-		flags = 0;
-	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-#else
-	// Otherwise, use the old way of doing it
-	flags = 1;
-	return ioctl(fd, FIOBIO, &flags);
-#endif
 }
 
 

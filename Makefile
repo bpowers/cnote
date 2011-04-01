@@ -26,14 +26,17 @@ include $(patsubst %,%/module.mk,$(MODULES))
 OBJ := $(patsubst %.c,%.o,$(filter %.c,$(SRC))) \
        $(patsubst %.y,%.o,$(filter %.y,$(SRC)))
 
-TARGETS := test/test_common src/cnote
+TESTS_SRC := $(shell find test -name 'test_*.c')
+TESTS := $(patsubst test/test_%.c,test/%.test,$(TESTS_SRC))
 
-all: $(TARGETS)
+TARGETS := src/cnote
+
+all: $(TESTS) $(TARGETS)
 
 # clear out all suffixes
 .SUFFIXES:
 # list only those we use
-.SUFFIXES: .d .c .o
+.SUFFIXES: .d .c .o .test
 
 # calculate C include
 %.d: %.c
@@ -46,19 +49,20 @@ all: $(TARGETS)
 
 # include the C include dependencies
 -include $(OBJ:.o=.d)
+-include $(TESTS_SRC:.c=.d)
 
 # link the program
 src/cnote: $(OBJ)
 	@echo "  LD    $@"
 	$(CC) -o $@ $(OBJ) $(LIBS) $(CFLAGS) $(LDFLAGS)
 
-test/test_common:
-	@echo "  LD    $@"
-	$(CC) -o $@ test/test_common.c $(LIBS) $(CFLAGS) -Iinclude/cfunc $(LDFLAGS) -lcheck
+test/%.test: test/test_%.o
+	@echo "  LD    $(TESTS)"
+	$(CC) -o $@ $< $(LIBS) $(CFLAGS) $(LDFLAGS) -lcheck
 
 clean:
 	find . -name "*.o" | xargs rm -f
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) $(TESTS)
 
 distclean: clean
 	find . -name "*.d" | xargs rm -f

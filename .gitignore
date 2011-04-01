@@ -1,11 +1,11 @@
-.scons*
+gmon.out
 *~
 src/ctagdump
 src/cnote
-src/ctest
 *.o
 *.a
 *.d
 config.mk
 *.pyc
 config.h
+test/*.test
