@@ -1,9 +1,7 @@
-/*===--- common.c - common functions ----------------------------===//
+/*===--- common functions -----------------------------------------------===//
  *
- * Copyright 2010 Bobby Powers
- *
- * Licensed under the GPLv2 license
- * see COPYING for details.
+ * Copyright 2011 Bobby Powers
+ * Licensed under the GPLv2 or GPLv3, see COPYING for details.
  *
  *===--------------------------------------------------------------------===//
  */
@@ -34,6 +32,5 @@
 
 #include <event2/event.h>
 #include <glib.h>
-
 
 

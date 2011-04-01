@@ -11,6 +11,9 @@
 #include <wordexp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 void
 setup(void)
@@ -26,13 +29,17 @@ teardown(void)
 START_TEST(test_wordexp)
 {
 	wordexp_t p;
-	char **w;
-	size_t i;
+	char *expanded;
+	struct passwd *pw;
 
 	wordexp("~", &p, 0);
-	w = p.we_wordv;
-	for (i = 0; i < p.we_wordc; i++)
-		fail_if(!w[i] || w[i][0] != '/', "wordexp cant expand ~");
+	fail_if(p.we_wordc != 1, "more than 1 expansion");
+	expanded = p.we_wordv[0];
+
+	pw = getpwuid(getuid());
+
+	fail_if(strcmp(expanded, pw->pw_dir) != 0, "~ not expanded to $HOME");
+
 	wordfree(&p);
 }
 END_TEST
