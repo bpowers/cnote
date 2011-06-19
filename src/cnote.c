@@ -47,14 +47,11 @@
 
 #include <glib.h>
 
-#include <sqlite3.h>
-
-sqlite3 *DB;
-
 static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "/home/bpowers/";
 static const char DEFAULT_DIR[] = "/var/unsecure/music";
+static const char DEFAULT_DB = "/home/bpowers/.cnote";
 
 // global var available to various functions that want to report status
 const char *program_name;
@@ -168,10 +165,9 @@ main(int argc, char *const argv[])
 	watch->on_change = change_cb;
 	watch->cleanup = cleanup_cb;
 	watch->dir_name = dir;
-	watch->data = PQconnectdb(CONN_INFO);
-	if (PQstatus((PGconn *)watch->data) != CONNECTION_OK) {
-		PQfinish((PGconn *)watch->data);
-		exit_msg("%s: couldn't connect to postgres", program_name);
+	watch->data = tags_init(DEFAULT_DB);
+	if (watch->data == NULL) {
+		exit_msg("%s: couldn't connect to sqlite", program_name);
 	}
 	dirwatch_init(watch);
 

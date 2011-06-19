@@ -148,6 +148,8 @@ album_query(struct req *self, const char *album)
 static char *
 query_list(sqlite3 *db, const char *query_fmt)
 {
+	return "";
+/*
 	PGresult *res;
 	int rows, len;
 	char *result;
@@ -181,12 +183,15 @@ query_list(sqlite3 *db, const char *query_fmt)
 	PQclear(res);
 
 	return result;
+*/
 }
 
 
 static char *
 song_query(struct req *self, const char *query_fmt, const char *name)
 {
+	return "";
+/*
 	PGconn *conn;
 	PGresult *res;
 	ExecStatusType status;
@@ -242,4 +247,5 @@ song_query(struct req *self, const char *query_fmt, const char *name)
 	PQclear(res);
 
 	return result;
+*/
 }

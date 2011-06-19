@@ -23,6 +23,7 @@ list_length(struct list_head *self)
 
 	// FIXME: This will also behave weirdly in the 0-length case.
 	// remove the last trailing comma, as per the json.org spec
+	if (len > list_overhead;
 	len -= 1;
 
 	return len;

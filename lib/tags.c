@@ -7,9 +7,9 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include <cfunc/common.h>
-#include <cfunc/tags.h>
-#include <cfunc/db.h>
+#include "common.h"
+#include "tags.h"
+#include "utils.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -28,36 +28,84 @@
 #include <time.h>
 #include <sys/stat.h>
 
+#include <sqlite3.h>
 #include <taglib/tag_c.h>
 
-#include <libpq-fe.h>
-
-#define INSERT_SONG							\
-	"INSERT INTO music (title, artist, album, track, time, path, hash, modified)" \
+static const char INSERT_QUERY[] =
+	"INSERT INTO music (title, artist, album, track, time, path, hash, modified)"
 	"    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
 
-#define UPDATE_SONG							\
-	"UPDATE music SET title = $1, artist = $2, album = $3, track = $4," \
-	"                 time = $5, hash = $7, modified = $8"		\
-	"    WHERE path = $6"
+static const char UPDATE_QUERY[] =
+	"UPDATE music SET title = $1, artist = $2, album = $3, track = $4,"
+	"                 time = $5, hash = $7, modified = $8"
+	"    WHERE path = $6";
 
+static const char MODIFIED_QUERY[] =
+	"SELECT modified"
+	"    FROM music WHERE path = $1";
+
+// so we can keep track of our db
+struct db_info {
+	sqlite3 *db;
+	sqlite3_stmt *insert_query;
+	sqlite3_stmt *update_query;
+	sqlite3_stmt *modified_query;
+};
+
+#define PREPARE_QUERY(in, out) do {					\
+		err = sqlite3_prepare_v2(db,				\
+					 in,				\
+					 strlen(in) + 1,		\
+					 out,				\
+					 NULL);				\
+		if (err != SQLITE_OK)					\
+			exit_msg("sqlite3 prepare 1 error: %d", err);	\
+	} while (false)
+
+
+void *tags_init(const char *db_path)
+{
+	int err;
+	sqlite3 *db = NULL;
+	struct db_info *ret;
+
+	ret = xmalloc(sizeof(struct db_info));
+
+	err = sqlite3_open(db_path, &db);
+	if (err != SQLITE_OK)
+		exit_msg("sqlite3 open error: %d", err);
+	ret->db = db;
+
+	PREPARE_QUERY(INSERT_QUERY, &ret->insert_query);
+	PREPARE_QUERY(UPDATE_QUERY, &ret->update_query);
+	PREPARE_QUERY(MODIFIED_QUERY, &ret->modified_query);
+
+	return ret;
+}
 
 void cleanup_cb(struct dirwatch *self)
 {
-	PGconn *conn = (PGconn *)self->data;
-	if (conn)
-		PQfinish(conn);
+	struct db_info *dbi = self->data;
+	sqlite3_finalize(dbi->insert_query);
+	sqlite3_finalize(dbi->update_query);
+	sqlite3_finalize(dbi->modified_query);
+	sqlite3_close(dbi->db);
 }
 
+/**
+ * In the future we'll want to match on file content, but for now
+ * simply matching on extension is fine.
+ */
 bool
 is_valid_cb(struct dirwatch *self __unused__, const char *path __unused__,
-	 const char *dir __unused__, const char *file)
+	    const char *dir __unused__, const char *file)
 {
 	char *ext;
 	ext = strrchr(file, '.');
 	if (!ext)
 		return false;
 	ext++;
+
 	if (strcmp(ext, "mp3") == 0 ||
 	    strcmp(ext, "m4a") == 0 ||
 	    strcmp(ext, "ogg") == 0 ||
@@ -68,8 +116,8 @@ is_valid_cb(struct dirwatch *self __unused__, const char *path __unused__,
 
 bool
 is_modified_cb(struct dirwatch *self, const char *path,
-	    const char *dir __unused__,
-	    const char *file __unused__)
+	       const char *dir __unused__,
+	       const char *file __unused__)
 {
 	PGconn *conn;
 	PGresult *res;
@@ -93,8 +141,7 @@ is_modified_cb(struct dirwatch *self, const char *path,
 	// remove the trailing newline
 	mtime[strlen(mtime)-1] = '\0';
 
-	static const char *const query_fmt = "SELECT modified"
-		"    FROM music WHERE path = $1";
+	static const char *const query_fmt = EXISTS_FMT;
 
 	if (PQstatus(conn) != CONNECTION_OK) {
 		PQfinish(conn);

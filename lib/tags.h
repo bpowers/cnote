@@ -10,8 +10,10 @@
 #ifndef _TAGS_H_
 #define _TAGS_H_
 
-#include <cfunc/dirwatch.h>
+#include "dirwatch.h"
 
+
+void *tags_init(const char *db_path);
 
 bool is_valid_cb(struct dirwatch *self,
 		 const char *path,
