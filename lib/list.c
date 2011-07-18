@@ -1,5 +1,5 @@
-#include <cfunc/common.h>
-#include <cfunc/list.h>
+#include "common.h"
+#include "list.h"
 
 #include <string.h>
 
@@ -23,8 +23,8 @@ list_length(struct list_head *self)
 
 	// FIXME: This will also behave weirdly in the 0-length case.
 	// remove the last trailing comma, as per the json.org spec
-	if (len > list_overhead;
-	len -= 1;
+	if (len > list_overhead)
+		len -= 1;
 
 	return len;
 }

@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS users, music;
+-- DROP TABLE IF EXISTS users, music;
 
 CREATE TABLE users (
        name  	   varchar(80) PRIMARY KEY,
@@ -6,9 +6,7 @@ CREATE TABLE users (
        salt	   bigint
 );
 
-CREATE SEQUENCE music_index_seq MINVALUE 0;
 CREATE TABLE music (
-       index 	   serial PRIMARY KEY,
        title  	   varchar(256) NOT NULL,
        artist  	   varchar(256) NOT NULL,
        album  	   varchar(256) NOT NULL,
@@ -19,4 +17,4 @@ CREATE TABLE music (
        modified	   timestamp(0)
 );
 
-GRANT ALL ON users, music TO "www-data";
+-- GRANT ALL ON users, music TO "www-data";

@@ -28,7 +28,7 @@
 #include "queries.h"
 #include "dirwatch.h"
 #include "tags.h"
-#include "db.h"
+#include "utils.h"
 
 #include <pthread.h>
 
@@ -51,7 +51,7 @@ static uint16_t DEFAULT_PORT = 1969;
 static const char DEFAULT_ADDR[] = "127.0.0.1";
 static const char CONN_INFO[] = "/home/bpowers/";
 static const char DEFAULT_DIR[] = "/var/unsecure/music";
-static const char DEFAULT_DB = "/home/bpowers/.cnote";
+static const char DEFAULT_DB[] = "/home/bpowers/.cnote";
 
 // global var available to various functions that want to report status
 const char *program_name;
@@ -79,13 +79,12 @@ static inline void set_content_type_json(struct evhttp_request *req);
 typedef void (*evhttp_cb)(struct evhttp_request *, void *);
 
 static struct req *
-req_new(struct ops *ops, struct evhttp_request *req, PGconn *conn)
+req_new(struct ops *ops, struct evhttp_request *req)
 {
 	struct req *ret;
 	ret = xmalloc(sizeof(*ret));
 	ret->ops = ops;
 	ret->req = req;
-	ret->conn = conn;
 	return ret;
 }
 
@@ -107,11 +106,7 @@ main(int argc, char *const argv[])
 	port = DEFAULT_PORT;
 	dir = DEFAULT_DIR;
 
-	CONN = PQconnectdb(CONN_INFO);
-	if (PQstatus(CONN) != CONNECTION_OK) {
-		PQfinish(CONN);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
+	// XXX: create connection
 
 	// process arguments from the command line
 	while ((optc = getopt_long(argc, argv,
@@ -190,7 +185,7 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 	// we always return JSON
 	set_content_type_json(req);
 
-	request = req_new(ops, req, CONN);
+	request = req_new(ops, req);
 
 	// the URI always starts with a /, so check for another one.
 	// if there IS another '/', it means we have a request for a

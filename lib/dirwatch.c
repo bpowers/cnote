@@ -7,8 +7,9 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include <cfunc/common.h>
-#include <cfunc/dirwatch.h>
+#include "common.h"
+#include "utils.h"
+#include "dirwatch.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -62,7 +63,7 @@ static void *watch_routine(struct dirwatch *self);
 struct dirwatch *
 dirwatch_new()
 {
-	return xmalloc0(sizeof(struct dirwatch));
+	return xcalloc(sizeof(struct dirwatch));
 }
 
 int
@@ -296,7 +297,7 @@ watch_list_init(struct watch_list *self, int len)
 		exit_msg("watch_list_init invalid len %d", len);
 
 	self->len = len;
-	self->slab = xmalloc0(len * sizeof(char *));
+	self->slab = xcalloc(len * sizeof(char *));
 
 	return 0;
 }
@@ -304,7 +305,7 @@ watch_list_init(struct watch_list *self, int len)
 /*
 static struct watch_list *watch_list_new(void)
 {
-	return xmalloc0(sizeof(struct watch_list));
+	return xcalloc(sizeof(struct watch_list));
 }
 
 static void
