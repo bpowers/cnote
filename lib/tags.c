@@ -45,7 +45,7 @@ static const char CREATE_STMT[] =
 	")";
 
 static const char INSERT_QUERY[] =
-	"INSERT INTO music (path, title, artist, album, track, time, modified)"
+	"INSERT INTO music (title, artist, album, track, time, modified, path)"
 	"    VALUES (?, ?, ?, ?, ?, ?, ?)";
 
 static const char UPDATE_QUERY[] =
@@ -57,12 +57,17 @@ static const char MODIFIED_QUERY[] =
 	"SELECT modified"
 	"    FROM music WHERE path = ?";
 
+static const char DELETE_QUERY[] =
+	"DELETE FROM music "
+	"    WHERE path = ?";;
+
 // so we can keep track of our db
 struct db_info {
 	sqlite3 *db;
 	sqlite3_stmt *insert_query;
 	sqlite3_stmt *update_query;
 	sqlite3_stmt *modified_query;
+	sqlite3_stmt *delete_query;
 };
 
 #define PREPARE_QUERY(in, out) do {					\
@@ -101,6 +106,7 @@ void *tags_init(const char *db_path)
 	PREPARE_QUERY(INSERT_QUERY, &ret->insert_query);
 	PREPARE_QUERY(UPDATE_QUERY, &ret->update_query);
 	PREPARE_QUERY(MODIFIED_QUERY, &ret->modified_query);
+	PREPARE_QUERY(DELETE_QUERY, &ret->delete_query);
 
 	return ret;
 }
@@ -111,6 +117,7 @@ void cleanup_cb(struct dirwatch *self)
 	sqlite3_finalize(dbi->insert_query);
 	sqlite3_finalize(dbi->update_query);
 	sqlite3_finalize(dbi->modified_query);
+	sqlite3_finalize(dbi->delete_query);
 	sqlite3_close(dbi->db);
 }
 
@@ -158,7 +165,7 @@ get_last_mtime(sqlite3_stmt *modified_stmt, const char *path)
 		mtime = sqlite3_column_int64(modified_stmt, 0);
 	else
 		mtime = -1L;
-		
+
 
 	sqlite3_reset(modified_stmt);
 	sqlite3_clear_bindings(modified_stmt);
@@ -212,11 +219,11 @@ process_file(const char *full_path, const char *rel_path, struct db_info *dbi)
 	sqlite3_stmt *stmt;
 
 	if (song_exists(dbi, rel_path)) {
-		//printf("  changed\n");
+		printf("  changed '%s'\n", rel_path);
 		fflush(stdout);
 		stmt = dbi->update_query;
 	} else {
-		//printf("  new '%s'\n", rel_path);
+		printf("  new '%s'\n", rel_path);
 		fflush(stdout);
 		stmt = dbi->insert_query;
 	}
@@ -239,16 +246,16 @@ process_file(const char *full_path, const char *rel_path, struct db_info *dbi)
 
 	stat(full_path, &stats);
 
-	sqlite3_bind_text(stmt, 1, rel_path, strlen(rel_path), SQLITE_STATIC);
 	text = taglib_tag_title(tag);
-	sqlite3_bind_text(stmt, 2, text, strlen(text), SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 1, text, strlen(text), SQLITE_STATIC);
 	text = taglib_tag_artist(tag);
-	sqlite3_bind_text(stmt, 3, text, strlen(text), SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, text, strlen(text), SQLITE_STATIC);
 	text = taglib_tag_album(tag);
-	sqlite3_bind_text(stmt, 4, text, strlen(text), SQLITE_STATIC);
-	sqlite3_bind_int(stmt, 5, taglib_tag_track(tag));
-	sqlite3_bind_int(stmt, 6, taglib_audioproperties_length(props));
-	sqlite3_bind_int64(stmt, 7, stats.st_mtime);
+	sqlite3_bind_text(stmt, 3, text, strlen(text), SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 4, taglib_tag_track(tag));
+	sqlite3_bind_int(stmt, 5, taglib_audioproperties_length(props));
+	sqlite3_bind_int64(stmt, 6, stats.st_mtime);
+	sqlite3_bind_text(stmt, 7, rel_path, strlen(rel_path), SQLITE_STATIC);
 
 	err = sqlite3_step(stmt);
 	if (err != SQLITE_DONE)
@@ -283,42 +290,35 @@ void
 delete_cb(struct dirwatch *self, const char *path,
 	  const char *dir __unused__, const char *file __unused__)
 {
-/*
-	PGconn *conn;
-	PGresult *res;
-	ExecStatusType status;
-	const char *query_args[1], *rel_path;
+	struct db_info *dbi;
+	int err;
+	const char *rel_path;
+	sqlite3_stmt *stmt;
 
-	conn = self->data;
+	dbi = self->data;
+	stmt = dbi->delete_query;
 
 	// rel path is the path under '$dir_name/'
 	rel_path = &path[strlen(self->dir_name) + 1];
 	printf("  deleting: '%s'\n", rel_path);
 	fflush(stdout);
 
-	static const char *const query_fmt = "DELETE FROM music "
-		"    WHERE path = $1";
+	err = sqlite3_bind_text(
+		stmt,
+		1,
+		rel_path,
+		strlen(rel_path),
+		SQLITE_STATIC);
+	if (err != SQLITE_OK)
+		exit_msg("sqlite3_bind: %d\n", err);
 
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-	pg_exec(conn, "BEGIN");
+	// if we don't have a record, and its a valid file, then its new
+	// and by definition modified
+	err = sqlite3_step(stmt);
+	if (err != SQLITE_DONE)
+		exit_msg("delete failed: %d - %s", err,
+			 sqlite3_errmsg(dbi->db));
 
-	query_args[0] = rel_path;
-	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
-			   NULL, 0);
-	status = PQresultStatus(res);
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
-			status, PQerrorMessage(conn));
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("");
-	}
-
-	pg_exec(conn, "END");
-	PQclear(res);
-*/
+	sqlite3_reset(stmt);
+	sqlite3_clear_bindings(stmt);
 }
