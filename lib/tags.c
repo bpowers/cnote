@@ -10,6 +10,7 @@
 #include "common.h"
 #include "tags.h"
 #include "utils.h"
+#include "db.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -30,7 +31,6 @@
 
 #include <stdint.h>
 
-#include <sqlite3.h>
 #include <taglib/tag_c.h>
 
 static const char CREATE_STMT[] =
@@ -70,7 +70,7 @@ struct db_info {
 	sqlite3_stmt *delete_query;
 };
 
-#define PREPARE_QUERY(in, out) do {					\
+#define PREPARE_QUERY(db, in, out) do {					\
 		err = sqlite3_prepare_v2(db,				\
 					 in,				\
 					 strlen(in),			\
@@ -103,10 +103,10 @@ void *tags_init(const char *db_path)
 	if (err != SQLITE_OK)
 		exit_msg("sqlite3 create error: %d", err);
 
-	PREPARE_QUERY(INSERT_QUERY, &ret->insert_query);
-	PREPARE_QUERY(UPDATE_QUERY, &ret->update_query);
-	PREPARE_QUERY(MODIFIED_QUERY, &ret->modified_query);
-	PREPARE_QUERY(DELETE_QUERY, &ret->delete_query);
+	PREPARE_QUERY(db, INSERT_QUERY, &ret->insert_query);
+	PREPARE_QUERY(db, UPDATE_QUERY, &ret->update_query);
+	PREPARE_QUERY(db, MODIFIED_QUERY, &ret->modified_query);
+	PREPARE_QUERY(db, DELETE_QUERY, &ret->delete_query);
 
 	return ret;
 }

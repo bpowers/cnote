@@ -72,6 +72,7 @@ static void print_version(void);
 
 static void handle_unknown(struct evhttp_request *req, void *unused);
 static void handle_request(struct evhttp_request *req, struct ops *ops);
+static void handle_req(struct evhttp_request *req, void *unused);
 
 static inline void set_content_type_json(struct evhttp_request *req);
 
@@ -146,9 +147,7 @@ main(int argc, char *const argv[])
 
 	// set the handlers for the api requests we care about, and set
 	// a generic error handler for everything else
-	evhttp_set_gencb(ev_http, (evhttp_cb)handle_unknown, NULL);
-	evhttp_set_cb(ev_http, "/artist*", (evhttp_cb)handle_request, &artist_ops);
-	evhttp_set_cb(ev_http, "/album*", (evhttp_cb)handle_request, &album_ops);
+	evhttp_set_gencb(ev_http, (evhttp_cb)handle_req, NULL);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
@@ -181,11 +180,16 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 	const char *name;
 	const char *result;
 	struct evbuffer *buf;
+	int err;
 
 	// we always return JSON
 	set_content_type_json(req);
 
 	request = req_new(ops, req);
+
+	err = sqlite3_open(DEFAULT_DB, &request->db);
+	if (err != SQLITE_OK)
+		exit_msg("couldn't open db");
 
 	// the URI always starts with a /, so check for another one.
 	// if there IS another '/', it means we have a request for a
@@ -203,6 +207,11 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 		result = request->ops->query(request, real_name);
 		free(real_name);
 	}
+
+	err = sqlite3_close(request->db);
+	if (err != SQLITE_OK)
+		exit_msg("close err: %d - %s\n", err,
+			 sqlite3_errmsg(request->db));
 
 	buf = evbuffer_new();
 	if (!buf)
@@ -232,6 +241,24 @@ handle_unknown(struct evhttp_request *req, void *unused __unused__)
 	evbuffer_free(buf);
 }
 
+// called when we don't have an artist or album API call - a fallthrough
+// error handler in a sense.
+static void
+handle_req(struct evhttp_request *req, void *unused __unused__)
+{
+	static const char ARTIST[] = "/artist";
+	static const char ALBUM[] = "/album";
+	const char *path;
+
+	path = evhttp_request_get_uri(req);
+
+	if (strncmp(ARTIST, path, strlen(ARTIST)) == 0)
+		handle_request(req, &artist_ops);
+	if (strncmp(ALBUM, path, strlen(ALBUM)) == 0)
+		handle_request(req, &album_ops);
+	else
+		handle_unknown(req, NULL);
+}
 
 static void
 print_help()

@@ -2,12 +2,11 @@
 #include "common.h"
 #include "utils.h"
 #include "list.h"
+#include "db.h"
 
 #include <stdlib.h>
 
 #include <glib.h>
-
-#include <sqlite3.h>
 
 #define ALLOWED_CHARS " \t\r\n'/()!,*&#:"
 
@@ -18,7 +17,6 @@ static char *artist_list(struct req *self);
 static char *artist_query(struct req *self, const char *artist);
 static char *album_list(struct req *self);
 static char *album_query(struct req *self, const char *artist);
-
 
 struct ops artist_ops = {
 	.list = artist_list,
@@ -34,7 +32,6 @@ struct json_ops json_ops = {
 	.length = info_length,
 	.jsonify = jsonify,
 };
-
 
 static struct info *
 info_song_new(const char *title, const char *artist, const char *album,
@@ -106,15 +103,18 @@ info_list_destroy(struct list_head *head)
 static char *
 artist_list(struct req *self)
 {
-	return query_list(self->db, "SELECT DISTINCT artist FROM music ORDER BY artist");
+	return query_list(
+		self->db,
+		"SELECT DISTINCT artist FROM music ORDER BY artist");
 }
 
 
 static char *
 artist_query(struct req *self, const char *artist)
 {
-	static const char *query_fmt = "SELECT title, artist, album, track, path"
-		"    FROM music WHERE artist = $1"
+	static const char *query_fmt =
+		"SELECT title, artist, album, track, path"
+		"    FROM music WHERE artist = ?"
 		"    ORDER BY album, track, title";
 
 	return song_query(self, query_fmt, artist);
@@ -124,22 +124,21 @@ artist_query(struct req *self, const char *artist)
 static char *
 album_list(struct req *self)
 {
-	return query_list(self->db, "SELECT DISTINCT album FROM music ORDER BY album");
+	return query_list(
+		self->db,
+		"SELECT DISTINCT album FROM music ORDER BY album");
 }
 
 
 static char *
 album_query(struct req *self, const char *album)
 {
-	static const char *query_fmt = "SELECT title, artist, album, track, path"
-		"    FROM music WHERE album = $1"
+	static const char *query_fmt =
+		"SELECT title, artist, album, track, path"
+		"    FROM music WHERE album = ?"
 		"    ORDER BY album, track, title";
 	return song_query(self, query_fmt, album);
 }
-
-
-
-
 
 // returns a string containing a JSON representation of the data
 // returned by the particular query passed in.  In this case, its
@@ -148,27 +147,19 @@ album_query(struct req *self, const char *album)
 static char *
 query_list(sqlite3 *db, const char *query_fmt)
 {
-	return "";
-/*
-	PGresult *res;
-	int rows, len;
+	int len, err;
 	char *result;
+	sqlite3_stmt *stmt;
 
 	LIST_HEAD(list);
+	PREPARE_QUERY(db, query_fmt, &stmt);
 
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
-
-	res = pg_exec(conn, query_fmt);
-	rows = PQntuples(res);
-
-	for (int i = 0; i < rows; ++i) {
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
 		struct info *row;
-		char *val;
-		val = PQgetvalue(res, i, 0);
+		const char *val;
 
+		// we don't care about the unsigned qualifier
+		val = (const char *)sqlite3_column_text(stmt, 0);
 		row = info_string_new(val);
 		list_add(&list, &row->list);
 	}
@@ -180,10 +171,9 @@ query_list(sqlite3 *db, const char *query_fmt)
 
 	info_list_destroy(&list);
 
-	PQclear(res);
+	sqlite3_finalize(stmt);
 
 	return result;
-*/
 }
 
 
