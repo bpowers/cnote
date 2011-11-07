@@ -16,7 +16,7 @@ hard'.  I stand by that belief, but, frankly, I would probably just
 use Go for any new project like this.
 
 
-Architecture
+architecture
 ------------
 
 cnote compiles to a small binary, which serves http on port 1969. A
@@ -30,6 +30,11 @@ files and into a sqlite database.  It uses inotify to watch your music
 library, so rearranging, adding and deleting files will automatically
 be reflected in cnote (although for now you will have to reload the
 web page).
+
+cnote uses inotify to watch for new/changed files, so it is currently
+linux only.  kqueue provides similar functionality on Mac/BSD, so
+abstracting this out would be possible, but I don't have plans to do
+that right now.
 
 
 status
