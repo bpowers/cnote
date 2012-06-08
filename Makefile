@@ -66,5 +66,6 @@ clean:
 
 distclean: clean
 	find . -name "*.d" | xargs rm -f
+	find . -name "*.pyc" | xargs rm -f
 
 .PHONY: clean distclean
