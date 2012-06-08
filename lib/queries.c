@@ -11,7 +11,7 @@
 #define ALLOWED_CHARS " \t\r\n'/()!,*&#:"
 
 static char *query_list(sqlite3 *conn, const char *query_fmt);
-static char *song_query(struct req *self, const char *query_fmt, const char *name);
+static char *song_query(sqlite3 *conn, const char *query_fmt, const char *name);
 
 static char *artist_list(struct req *self);
 static char *artist_query(struct req *self, const char *artist);
@@ -117,7 +117,7 @@ artist_query(struct req *self, const char *artist)
 		"    FROM music WHERE artist = ?"
 		"    ORDER BY album, track, title";
 
-	return song_query(self, query_fmt, artist);
+	return song_query(self->db, query_fmt, artist);
 }
 
 
@@ -137,7 +137,7 @@ album_query(struct req *self, const char *album)
 		"SELECT title, artist, album, track, path"
 		"    FROM music WHERE album = ?"
 		"    ORDER BY album, track, title";
-	return song_query(self, query_fmt, album);
+	return song_query(self->db, query_fmt, album);
 }
 
 // returns a string containing a JSON representation of the data
@@ -178,53 +178,29 @@ query_list(sqlite3 *db, const char *query_fmt)
 
 
 static char *
-song_query(struct req *self, const char *query_fmt, const char *name)
+song_query(sqlite3 *db, const char *query_fmt, const char *name)
 {
-	return "";
-/*
-	PGconn *conn;
-	PGresult *res;
-	ExecStatusType status;
-	int rows, len;
+	int len, err;
 	char *result;
-	const char *query_args[1];
+	sqlite3_stmt *stmt;
 
 	LIST_HEAD(list);
+	PREPARE_QUERY(db, query_fmt, &stmt);
 
-	conn = self->conn;
-	if (PQstatus(conn) != CONNECTION_OK) {
-		PQfinish(conn);
-		exit_msg("%s: couldn't connect to postgres", program_name);
-	}
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
 
-	// FIXME: sanitize artist (little bobby tables...)
-	query_args[0] = name;
-	res = PQexecParams(conn, query_fmt, 1, NULL, query_args, NULL,
-			   NULL, 0);
-	status = PQresultStatus(res);      
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK)
-	{
-		fprintf(stderr, "'%s' command failed (%d): %s", query_fmt,
-			status, PQerrorMessage(conn));
-		PQclear(res);
-		PQfinish(conn);
-		exit_msg("");
-	}
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		struct info *row;
+		const char *title, *artist, *album, *track, *path;
 
-	rows = PQntuples(res);
-	for (int i = 0; i < rows; ++i) {
-		char *title, *artist, *album, *track_s, *path;
-		struct info *song;
-
-		title = PQgetvalue(res, i, 0);
-		artist = PQgetvalue(res, i, 1);
-		album = PQgetvalue(res, i, 2);
-		track_s = PQgetvalue(res, i, 3);
-		path = PQgetvalue(res, i, 4);
-
-		song = info_song_new(title, artist, album,
-				     track_s, path);
-		list_add(&list, &song->list);
+		// we don't care about the unsigned qualifier
+		title = (const char *)sqlite3_column_text(stmt, 0);
+		artist = (const char *)sqlite3_column_text(stmt, 1);
+		album = (const char *)sqlite3_column_text(stmt, 2);
+		track = (const char *)sqlite3_column_text(stmt, 3);
+		path = (const char *)sqlite3_column_text(stmt, 4);
+		row = info_song_new(title, artist, album, track, path);
+		list_add(&list, &row->list);
 	}
 
 	// the +1 is for the trailing null byte.
@@ -234,8 +210,7 @@ song_query(struct req *self, const char *query_fmt, const char *name)
 
 	info_list_destroy(&list);
 
-	PQclear(res);
+	sqlite3_finalize(stmt);
 
 	return result;
-*/
 }
