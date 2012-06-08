@@ -7,7 +7,7 @@
  *
  *===--------------------------------------------------------------------===//
  */
-#include <sqlite3.h>
+#include "sqlite3.h"
 
 #define PREPARE_QUERY(db, in, out) do {					\
 		err = sqlite3_prepare_v2(db,				\
