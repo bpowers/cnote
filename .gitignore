@@ -9,3 +9,4 @@ config.mk
 *.pyc
 config.h
 test/*.test
+src/version.h
