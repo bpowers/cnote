@@ -175,6 +175,8 @@ handle_ievent(struct dirwatch *self, struct inotify_event *i)
 		malloced = false;
 	}
 
+	//fprintf(stderr, "event (0x%x) for: %s\n", i->mask, full_path);
+
 	// handle new directory creation, or a directory move
 	if (i->mask & IN_CREATE ||
 	    (i->mask & IN_MOVED_TO && i->mask & IN_ISDIR)) {
