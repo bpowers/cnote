@@ -208,8 +208,7 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 	// name is (exactly) the string "/", list the albums, else...
 	if (!name || !strcmp(name, "/")) {
 		result = request->ops->list(request);
-	}
-	else {
+	} else {
 		char *real_name;
 		real_name = g_uri_unescape_string(&name[1], NULL);
 		result = request->ops->query(request, real_name);
@@ -243,26 +242,28 @@ handle_unknown(struct evhttp_request *req, void *unused __unused__)
 
 	set_content_type_json(req);
 
+	printf("bad path '%s'\n", evhttp_request_get_uri(req));
 	evbuffer_add_printf(buf, "\"bad request path '%s'\"",
 			    evhttp_request_get_uri(req));
 	evhttp_send_reply(req, HTTP_OK, "not found", buf);
 	evbuffer_free(buf);
 }
 
+#define ARTIST "/artist"
+#define ALBUM "/album"
+
 // called when we don't have an artist or album API call - a fallthrough
 // error handler in a sense.
 static void
 handle_req(struct evhttp_request *req, void *unused __unused__)
 {
-	static const char ARTIST[] = "/artist";
-	static const char ALBUM[] = "/album";
 	const char *path;
 
 	path = evhttp_request_get_uri(req);
 
 	if (strncmp(ARTIST, path, strlen(ARTIST)) == 0)
 		handle_request(req, &artist_ops);
-	if (strncmp(ALBUM, path, strlen(ALBUM)) == 0)
+	else if (strncmp(ALBUM, path, strlen(ALBUM)) == 0)
 		handle_request(req, &album_ops);
 	else
 		handle_unknown(req, NULL);
@@ -271,24 +272,24 @@ handle_req(struct evhttp_request *req, void *unused __unused__)
 static void
 print_help()
 {
-	printf ("\
+	printf("\
 Usage: %s [-aphv]\n", program_name);
-	fputs ("\
+	printf("\
 RESTful access to data about your music collection.\n\n\
-Options:\n", stdout);
-	puts ("");
-	fputs ("\
+Options:\n");
+	printf("\n");
+	printf("\
   -h, --help          display this help and exit\n\
-  -v, --version       display version information and exit\n", stdout);
-	puts ("");
-	fputs ("\
+  -v, --version       display version information and exit\n");
+	printf("\n");
+	printf("\
   -a, --address=ADDR  address to listen for connections on\n\
-                      (default: localhost)\n", stdout);
-	fputs ("\
+                      (default: localhost)\n");
+	printf("\
   -p, --port=PORT     port to listen for connections on\n\
-                      (default: 1984)\n", stdout);
-	printf ("\n");
-	printf ("\
+                      (default: 1984)\n");
+	printf("\n");
+	printf("\
 Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 }
 
@@ -296,12 +297,11 @@ Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 static void
 print_version (void)
 {
-	printf ("%s (%s) %s\n", CANONICAL_NAME, PACKAGE, VERSION);
-	puts ("");
-	// FSF recommends seperating out the year, for ease in translations.
-	printf ("\
+	printf("%s (%s) %s\n", CANONICAL_NAME, PACKAGE, VERSION);
+	printf("\n");
+	printf("\
 Copyright (C) %s Bobby Powers.\n\
-License GPLv2+: GNU GPL version 2 or later <http://gnu.org/licenses/gpl.html>\n\
+License GPLv3: GNU GPL version 2 or later <http://gnu.org/licenses/gpl.html>\n\
 This is free software: you are free to change and redistribute it.\n\
 There is NO WARRANTY, to the extent permitted by law.\n\n", YEAR);
 }
