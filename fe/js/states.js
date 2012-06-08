@@ -31,15 +31,27 @@ bp.media = function () {
 var infoCb = function(type, clickAction) {
     return function(data, status) {
         var html = '';
-        if (!data)
+        if (!data) {
             html = 'no data in response.';
-        else
+        } else {
+	    if (type === 'artist' || type === 'album') {
+		data.sort(function(a, b) {
+		    a = a.toLowerCase();
+		    b = b.toLowerCase();
+		    if (a > b)
+			return 1;
+		    if (a < b)
+			return -1;
+		    return 0;
+		})
+	    }
             data.map(function (a) {
                 if (!a)
                     return;
                 html += '<div class="row"><a href="#' + type+ '=' + a + '">' +
                     decodeURIComponent(a) + '</a></div>';
             });
+	}
 
         $('#' + type).html(html);
         $('#' + type + ' .row a').bind('click', function (event) {
