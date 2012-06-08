@@ -1,4 +1,4 @@
-MODULES := lib src
+MODULES := src
 
 include config.mk
 
