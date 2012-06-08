@@ -57,6 +57,20 @@ var loadBrowse = function(type) {
     });
 }
 
+// returns the straight up path we got from cnote and encode each
+// component, so that both the browser and nginx will handle things
+// correctly.  The browser (or maybe just jquery) will truncate
+// anything after '#' in a URI for an ajax request, and nginx might
+// mess stuff up too.
+var escapePath = function(path) {
+    var parts = path.split("/");
+    var escapedPath = "";
+    for (i in parts) {
+	escapedPath += "/" + encodeURIComponent(parts[i]);
+    }
+    return escapedPath.substring(1);
+}
+
 var loadDetails = function(type, target) {
     $.ajax({
         url: '/api/' + type + '/' + encodeURIComponent(target),
@@ -69,8 +83,9 @@ var loadDetails = function(type, target) {
 		data.map(function (song) {
 		    if (!song)
 			return;
+		    escapedPath = escapePath(song.path);
 		    html += '<div class="row"><a href="/music/' +
-			encodeURIComponent(song.path) + '">play</a> ' +
+			escapedPath + '">play</a> ' +
 			decodeURIComponent(song.album) +
 			' - ' + decodeURIComponent(song.title) + '</div>';
 		});
