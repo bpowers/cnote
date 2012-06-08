@@ -22,8 +22,7 @@
 
 #include <sqlite3.h>
 
-// the '!!' is from Love's LSP book.  not quite sure why they're
-// desirable.  The ones listed on KernelTrap don't have them.
+// the '!!' is to convert the argument to 0 or 1.
 #define likely(x)   __builtin_expect(!!(x),1)
 #define unlikely(x) __builtin_expect(!!(x),0)
 #define __packed    __attribute__((packed))
