@@ -16,7 +16,7 @@ c.require('libevent >= 2.0')
 c.require('glib-2.0')
 c.require('taglib_c')
 
-c.append('cflags', '-g -O2 -pthread -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE=1')
+c.append('cflags', '-g -O2 -pthread -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE=1 -DSQLITE_OMIT_LOAD_EXTENSION')
 c.append('ldflags', '-Wl,--no-add-needed')
 
 c.prefer_cc('clang')
