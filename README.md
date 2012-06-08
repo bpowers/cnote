@@ -19,9 +19,10 @@ use Go for any new project like this.
 architecture
 ------------
 
-cnote compiles to a small binary, which serves http on port 1969. A
-GET request on / will provide you with a page which uses Javascript to
-get information about the artists/albums in your library.
+cnote compiles to a small binary, which serves http on port 1969. All
+the binary does is respond to requests for /artist* and /album*.  The
+files in fe/ (frontend) can be served from nginx, along with your
+music.  See the config in examples/nginx.conf for how this works.
 
 There are several paths in src/cnote.c to configure to point cnote at
 your library.  When it starts up for the first time, it will crawl
@@ -40,17 +41,13 @@ that right now.
 status
 ------
 
-Originally cnote used postgres for its database backend, and not all
-the APIs are updated to use the sqlite database (their implementation
-is commented out).  Additionally, a small amount of work needs to be
-done to use sane-r defaults for the music library location (instead of
-hardcoding it for my machine), and allow options to be specified in a
-config file.  I do plan on doing this, but wanted to get the code up.
-Of course, patches are welcome too :).
+It works excellently for me with the nginx config in examples.  Memory
+usage after several hundred thousand requests is stable at 5 MiB.  It
+'only' does between 300 and 450 requests/sec.  This response time is
+completely dependent on sqlite right now.
 
 
 license
 -------
 
 cnote is offered under the GPLv3 license, see COPYING for details.
-I'm open to changing this if that is useful for anyone, let me know.
