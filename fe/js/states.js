@@ -59,7 +59,7 @@ var loadBrowse = function(type) {
 
 var loadDetails = function(type, target) {
     $.ajax({
-        url: '/api/' + type + '/' + target,
+        url: '/api/' + type + '/' + encodeURIComponent(target),
         dataType: 'json',
         success: function(data, status) {
 	    var html = '';
@@ -70,7 +70,8 @@ var loadDetails = function(type, target) {
 		    if (!song)
 			return;
 		    html += '<div class="row"><a href="/music/' +
-			song.path + '">play</a> ' + decodeURIComponent(song.album) +
+			encodeURIComponent(song.path) + '">play</a> ' +
+			decodeURIComponent(song.album) +
 			' - ' + decodeURIComponent(song.title) + '</div>';
 		});
 	    $(options.content).html(html);
