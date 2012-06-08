@@ -52,7 +52,7 @@
 static uint16_t DEFAULT_PORT = 1969;
 static const char *DEFAULT_ADDR = "127.0.0.1";
 static const char *DEFAULT_DIR = "~/Music";
-static const char *DEFAULT_DB = "/home/bpowers/.cnote";
+static const char *DEFAULT_DB = "~/.cnote";
 
 // global var available to various functions that want to report status
 const char *program_name;
@@ -72,8 +72,8 @@ static void print_help(void);
 static void print_version(void);
 
 static void handle_unknown(struct evhttp_request *req, void *unused);
-static void handle_request(struct evhttp_request *req, struct ops *ops);
-static void handle_req(struct evhttp_request *req, void *unused);
+static void handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db);
+static void handle_req(struct evhttp_request *req, sqlite3 *db);
 
 static inline void set_content_type_json(struct evhttp_request *req);
 
@@ -98,8 +98,10 @@ main(int argc, char *const argv[])
 	int optc, err;
 	uint16_t port;
 	wordexp_t w;
-	const char *addr, *dir;
+	const char *addr, *dir, *db_path;
 	struct dirwatch *watch;
+
+	sqlite3 *db;
 
 	struct evhttp *ev_http;
 	struct event_base *ev_base;
@@ -109,12 +111,17 @@ main(int argc, char *const argv[])
 	port = DEFAULT_PORT;
 	dir = DEFAULT_DIR;
 
+	// expand any '~' or vars in the music dir path
 	err = wordexp(dir, &w, 0);
 	if (err)
 		exit_perr("main: wordexp");
-
-	// expand any '~' or vars in the music dir path
 	dir = strdup(w.we_wordv[0]);
+	wordfree(&w);
+
+	err = wordexp(DEFAULT_DB, &w, 0);
+	if (err)
+		exit_perr("main: wordexp");
+	db_path = strdup(w.we_wordv[0]);
 	wordfree(&w);
 
 	// process arguments from the command line
@@ -141,6 +148,10 @@ main(int argc, char *const argv[])
 		}
 	}
 
+	err = sqlite3_open(db_path, &db);
+	if (err != SQLITE_OK)
+		exit_msg("couldn't open db");
+
 	ev_base = event_base_new();
 	if (!ev_base)
 		exit_perr("main: event_base_new");
@@ -155,7 +166,7 @@ main(int argc, char *const argv[])
 
 	// set the handlers for the api requests we care about, and set
 	// a generic error handler for everything else
-	evhttp_set_gencb(ev_http, (evhttp_cb)handle_req, NULL);
+	evhttp_set_gencb(ev_http, (evhttp_cb)handle_req, db);
 
 	fprintf(stderr, "%s: initialized and waiting for connections\n",
 		program_name);
@@ -167,7 +178,7 @@ main(int argc, char *const argv[])
 	watch->on_change = change_cb;
 	watch->cleanup = cleanup_cb;
 	watch->dir_name = dir;
-	watch->data = tags_init(DEFAULT_DB);
+	watch->data = tags_init(db_path);
 	if (watch->data == NULL) {
 		exit_msg("%s: couldn't connect to sqlite", program_name);
 	}
@@ -176,28 +187,29 @@ main(int argc, char *const argv[])
 	// the main event loop
 	event_base_dispatch(ev_base);
 
+	err = sqlite3_close(db);
+	if (err != SQLITE_OK)
+		exit_msg("close err: %d - %s\n", err,
+			 sqlite3_errmsg(db));
+
 	return 0;
 }
 
 
 // called when we get a request like /albums or /album/Album Of The Year
 static void
-handle_request(struct evhttp_request *req, struct ops *ops)
+handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db)
 {
 	struct req *request;
 	const char *name;
 	const char *result;
 	struct evbuffer *buf;
-	int err;
 
 	// we always return JSON
 	set_content_type_json(req);
 
 	request = req_new(ops, req);
-
-	err = sqlite3_open(DEFAULT_DB, &request->db);
-	if (err != SQLITE_OK)
-		exit_msg("couldn't open db");
+	request->db = db;
 
 	// the URI always starts with a /, so check for another one.
 	// if there IS another '/', it means we have a request for a
@@ -214,11 +226,6 @@ handle_request(struct evhttp_request *req, struct ops *ops)
 		result = request->ops->query(request, real_name);
 		free(real_name);
 	}
-
-	err = sqlite3_close(request->db);
-	if (err != SQLITE_OK)
-		exit_msg("close err: %d - %s\n", err,
-			 sqlite3_errmsg(request->db));
 
 	buf = evbuffer_new();
 	if (!buf)
@@ -254,16 +261,16 @@ handle_unknown(struct evhttp_request *req, void *unused __unused__)
 
 // called for each request
 static void
-handle_req(struct evhttp_request *req, void *unused __unused__)
+handle_req(struct evhttp_request *req, sqlite3 *db)
 {
 	const char *path;
 
 	path = evhttp_request_get_uri(req);
 
 	if (strncmp(ARTIST, path, strlen(ARTIST)) == 0)
-		handle_request(req, &artist_ops);
+		handle_request(req, &artist_ops, db);
 	else if (strncmp(ALBUM, path, strlen(ALBUM)) == 0)
-		handle_request(req, &album_ops);
+		handle_request(req, &album_ops, db);
 	else
 		handle_unknown(req, NULL);
 }
