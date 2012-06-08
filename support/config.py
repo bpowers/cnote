@@ -80,7 +80,7 @@ class ConfigBuilder:
             config.write('#ifndef _CONFIG_H_\n')
             config.write('#define _CONFIG_H_\n\n')
             for var in self.defs:
-                config.write('const char %s[] = "%s";\n' %
+                config.write('#define %s\t"%s"\n' %
                              (var.upper().replace('-', '_'), self.defs[var]))
             config.write('\n#endif // _CONFIG_H_\n')
 

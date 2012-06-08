@@ -40,6 +40,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include <wordexp.h>
+
 #include <event2/event.h>
 #include <event2/http.h>
 #include <event2/http_struct.h>
@@ -48,10 +50,9 @@
 #include <glib.h>
 
 static uint16_t DEFAULT_PORT = 1969;
-static const char DEFAULT_ADDR[] = "127.0.0.1";
-static const char CONN_INFO[] = "/home/bpowers/";
-static const char DEFAULT_DIR[] = "/var/unsecure/music";
-static const char DEFAULT_DB[] = "/home/bpowers/.cnote";
+static const char *DEFAULT_ADDR = "127.0.0.1";
+static const char *DEFAULT_DIR = "~/Music";
+static const char *DEFAULT_DB = "/home/bpowers/.cnote";
 
 // global var available to various functions that want to report status
 const char *program_name;
@@ -96,6 +97,7 @@ main(int argc, char *const argv[])
 {
 	int optc, err;
 	uint16_t port;
+	wordexp_t w;
 	const char *addr, *dir;
 	struct dirwatch *watch;
 
@@ -107,7 +109,13 @@ main(int argc, char *const argv[])
 	port = DEFAULT_PORT;
 	dir = DEFAULT_DIR;
 
-	// XXX: create connection
+	err = wordexp(dir, &w, 0);
+	if (err)
+		exit_perr("main: wordexp");
+
+	// expand any '~' or vars in the music dir path
+	dir = strdup(w.we_wordv[0]);
+	wordfree(&w);
 
 	// process arguments from the command line
 	while ((optc = getopt_long(argc, argv,
