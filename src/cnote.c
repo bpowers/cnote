@@ -252,8 +252,7 @@ handle_unknown(struct evhttp_request *req, void *unused __unused__)
 #define ARTIST "/artist"
 #define ALBUM "/album"
 
-// called when we don't have an artist or album API call - a fallthrough
-// error handler in a sense.
+// called for each request
 static void
 handle_req(struct evhttp_request *req, void *unused __unused__)
 {
