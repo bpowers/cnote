@@ -63,6 +63,7 @@ var loadBrowse = function(type) {
 // anything after '#' in a URI for an ajax request, and nginx might
 // mess stuff up too.
 var escapePath = function(path) {
+    path = decodeURIComponent(path);
     var parts = path.split("/");
     var escapedPath = "";
     for (i in parts) {
