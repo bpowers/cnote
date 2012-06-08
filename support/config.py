@@ -17,6 +17,10 @@ else:
     new_path = LOCAL_PKGCONFIG
 environ[PKG_PATH] = new_path
 
+def slurp(fname):
+    with open(fname, 'r') as f:
+        return f.read()
+
 def run_cmd(cmd, effect='stdout'):
     '''
     Runs a shell command, waits for it to complete, and returns stdout.
@@ -32,20 +36,44 @@ def run_cmd(cmd, effect='stdout'):
 def _new_env():
     return {
         'cflags': '',
-        'ldflags': '',
+        'ldflags': '-lrt',
         'libs': '',
     }
+
+help_text = '''Usage: ./configure [ OPTIONS ]
+Configures the build system for cfunc.
+
+Options:
+
+  --help      display this help and exit
+  --debug     build with debugging symbols
+  --profile   build with gcov profiling support
+  --optimize  build with heavy optimizations
+
+Report bugs to <bobbypowers@gmail.com>.
+'''
 
 class ConfigBuilder:
     def __init__(self):
         self.env = _new_env()
         self.defs = {}
         self.defs['year'] = str(datetime.now().year)
+        self.debug_build = '--debug' in argv
+        self.profile_build = '--profile' in argv
+        self.optimize_build = '--optimize' in argv
+        self.pkg_config = 'pkg-config'
+
+        if '--help' in argv:
+            print help_text
+            exit(0)
 
     def config(self, key, val):
         self.defs[key] = val
 
-    def require(self, lib='', program='pkg-config'):
+    def require(self, lib='', program=None):
+        if not program:
+            program = self.pkg_config
+
         env = self.env
         path = run_cmd('which %s' % (program))
         if len(path) is 0:
@@ -72,10 +100,14 @@ class ConfigBuilder:
             env[info] = existing + ' ' + new
 
     def generate(self, fname='config.mk'):
+        if self.profile_build:
+            self.append('cflags', '-D_PROF')
         with open(fname, 'w') as config:
             for info in self.env:
+                values = self.env[info].strip()
                 config.write('%s := %s\n' % (info.upper(),
-                                             self.env[info].strip()))
+                                             values))
+
         with open('config.h', 'w') as config:
             config.write('#ifndef _CONFIG_H_\n')
             config.write('#define _CONFIG_H_\n\n')

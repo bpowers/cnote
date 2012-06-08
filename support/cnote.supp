@@ -1,0 +1,7 @@
+{
+    glib-stuff
+    Memcheck:Leak
+    fun:memalign
+    fun:posix_memalign
+}
+
