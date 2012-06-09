@@ -14,7 +14,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "sqlite3.h"
+#include <sqlite3.h>
 
 // the '!!' is to convert the argument to 0 or 1.
 #define likely(x)   __builtin_expect(!!(x),1)

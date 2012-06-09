@@ -36,14 +36,14 @@ else
 endif
 
 # each module will add to this
-LIB_SRC := dirwatch.c list.c queries.c tags.c utils.c sqlite3.c
+LIB_SRC := dirwatch.c list.c queries.c tags.c utils.c
 
 SRC := main.c
 
 # determine the object files
 LIB_OBJS := $(patsubst %.c,%.o,$(filter %.c,$(LIB_SRC)))
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRC)))
-OBJS += $(shell [ -d ../vendor/jemalloc/src ] && ls ../vendor/jemalloc/src/*.o | grep -v pic)
+OBJS += $(shell find ../vendor/jemalloc/src -name '*.o' | grep -v pic)
 
 BINARY := cnote
 

@@ -31,6 +31,6 @@ vendor/jemalloc:
 	git submodule update --init
 
 vendor/jemalloc/Makefile:
-	cd vendor/jemalloc && ./autogen.sh CC=clang CFLAGS="-O4" LDFLAGS="-flto"
+	cd vendor/jemalloc && ./autogen.sh
 
 .PHONY: build distclean clean check coverage
