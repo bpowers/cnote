@@ -98,7 +98,7 @@ var loadDetails = function(type, target) {
 			return;
 		    escapedPath = escapePath(song.path);
 		    html += '<div class="row"><a href="/music/' +
-			escapedPath + '">play</a> ' +
+			escapedPath + '">▶</a> &nbsp; ' +
 			decodeURIComponent(song.album) +
 			' - ' + decodeURIComponent(song.title) + '</div>';
 		});
