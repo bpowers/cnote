@@ -76,7 +76,7 @@ dirwatch_free(struct dirwatch *self)
 	if (self->cleanup)
 		self->cleanup(self);
 	if (self->dir_name)
-		free((void *)self->dir_name);
+		free((void *)(intptr_t)self->dir_name);
 	if (self->wds.slab)
 		free(self->wds.slab);
 	free(self);
