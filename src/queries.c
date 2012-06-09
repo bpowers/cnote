@@ -115,6 +115,7 @@ artist_list(struct req *self)
 static char *
 artist_query(struct req *self, const char *artist)
 {
+	// FIXME: should remove the ORDER BY and do it client side.
 	static const char *query_fmt =
 		"SELECT title, artist, album, track, path"
 		"    FROM music WHERE artist = ?"
@@ -136,6 +137,7 @@ album_list(struct req *self)
 static char *
 album_query(struct req *self, const char *album)
 {
+	// FIXME: should remove the ORDER BY and do it client side.
 	static const char *query_fmt =
 		"SELECT title, artist, album, track, path"
 		"    FROM music WHERE album = ?"

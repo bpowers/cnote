@@ -46,7 +46,8 @@ static const struct option longopts[] =
 	{NULL, 0, NULL, 0}
 };
 
-static const char *CREATE_STMT =
+static const char *INITIAL_STMTS[] =
+{
 	"CREATE TABLE IF NOT EXISTS music ("
 	"       path     varchar(512) PRIMARY KEY NOT NULL,"
 	"       title    varchar(256) NOT NULL,"
@@ -55,13 +56,12 @@ static const char *CREATE_STMT =
 	"       track    int,"
 	"       time     int,"
 	"       modified int64"
-	")";
-
-static const char *INDEX_ALBUMS_STMT =
-	"CREATE INDEX IF NOT EXISTS i_album ON music(album)";
-
-static const char *INDEX_ARTISTS_STMT =
-	"CREATE INDEX IF NOT EXISTS i_artist ON music(artist)";
+	")",
+	"CREATE INDEX IF NOT EXISTS i_album ON music(album)",
+	"CREATE INDEX IF NOT EXISTS i_artist ON music(artist)",
+	"CREATE INDEX IF NOT EXISTS i_full ON music(artist, album, title, track, path)",
+	NULL
+};
 
 // forward declarations
 static void print_help(void);
@@ -152,17 +152,11 @@ main(int argc, char *const argv[])
 	if (err != SQLITE_OK)
 		exit_msg("couldn't open db");
 
-	err = sqlite3_exec(db, CREATE_STMT, NULL, NULL, &err_msg);
-	if (err != SQLITE_OK)
-		exit_msg("sqlite3 create error: %d", err);
-
-	err = sqlite3_exec(db, INDEX_ARTISTS_STMT, NULL, NULL, &err_msg);
-	if (err != SQLITE_OK)
-		exit_msg("sqlite3 index artists error: %d", err);
-
-	err = sqlite3_exec(db, INDEX_ALBUMS_STMT, NULL, NULL, &err_msg);
-	if (err != SQLITE_OK)
-		exit_msg("sqlite3 index albums error: %d", err);
+	for (const char **stmt = INITIAL_STMTS; *stmt; stmt++) {
+		err = sqlite3_exec(db, *stmt, NULL, NULL, &err_msg);
+		if (err != SQLITE_OK)
+			exit_msg("sqlite3 create error: %d (%s)", err, err_msg);
+	}
 
 	ev_base = event_base_new();
 	if (!ev_base)
