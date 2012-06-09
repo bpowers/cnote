@@ -28,8 +28,6 @@ c.require('taglib_c')
 c.append('cflags', '-pthread -D_GNU_SOURCE=1 -DSQLITE_OMIT_LOAD_EXTENSION')
 c.append('ldflags', '-Wl,--no-add-needed')
 
-c.append('libs', '../vendor/jemalloc/lib/libjemalloc.a')
-
 c.prefer_cc('clang')
 
 c.generate()

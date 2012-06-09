@@ -43,7 +43,7 @@ SRC := main.c
 # determine the object files
 LIB_OBJS := $(patsubst %.c,%.o,$(filter %.c,$(LIB_SRC)))
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRC)))
-
+OBJS += $(shell [ -d ../vendor/jemalloc/src ] && ls ../vendor/jemalloc/src/*.o | grep -v pic)
 
 BINARY := cnote
 
