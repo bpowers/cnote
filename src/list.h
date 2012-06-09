@@ -9,9 +9,8 @@ struct list_head {
 	struct list_head *prev;
 };
 
-#define list_for_each(pos, head)					\
-        for (pos = (head)->next; prefetch(pos->next), pos != (head);	\
-	     pos = pos->next)
+#define list_for_each(pos, head) \
+        for (pos = (head)->next; pos != (head); pos = pos->next)
 
 // XXX: not thread safe.
 static inline void
@@ -34,7 +33,6 @@ list_add(struct list_head *curr, struct list_head *new)
 #define container_of(ptr, type, member) ({		     \
 	const typeof(((type *)0)->member) *__mptr = (ptr);   \
 	(type *)((char *)__mptr - offsetof(type,member) );})
-
 
 struct info;
 struct json_ops {
