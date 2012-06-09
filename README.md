@@ -19,6 +19,8 @@ belief, but frankly I would probably just use Go for any new project
 like this.
 
 
+![cnote in chrome](https://github.com/bpowers/cnote/raw/master/doc/cnote_in_use.png "cnote in Chrome")
+
 architecture
 ------------
 
