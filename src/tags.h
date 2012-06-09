@@ -1,12 +1,6 @@
-/*===--- tags.h - id3 tag manipulation functions ------------------------===//
- *
- * Copyright 2010 Bobby Powers
- * Licensed under the GPLv2 license
- *
- * see COPYING for details.
- *
- *===--------------------------------------------------------------------===//
- */
+// Copyright 2011 Bobby Powers. All rights reserved.
+// Use of this source code is governed by the MIT
+// license that can be found in the LICENSE file.
 #ifndef _TAGS_H_
 #define _TAGS_H_
 

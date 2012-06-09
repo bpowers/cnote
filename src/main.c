@@ -1,27 +1,6 @@
-/*===--- cnote.c - RESTful music information api ------------------------===//
- *
- * Copyright 2010 Bobby Powers
- *
- * This file is part of cnote.
- *
- * cnote is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation, version 3 of the License.
- *
- * cnote is distributed in the hope that it will be useful, but WITHOUT
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with cnote.  If not, see <http://www.gnu.org/licenses/>.
- *
- *===--------------------------------------------------------------------===//
- *
- * The main dispatch for our RESTful API
- *
- *===--------------------------------------------------------------------===//
- */
+// Copyright 2011 Bobby Powers. All rights reserved.
+// Use of this source code is governed by the MIT
+// license that can be found in the LICENSE file.
 #include "config.h"
 
 #include "common.h"
@@ -340,7 +319,7 @@ print_version (void)
 	printf("\n");
 	printf("\
 Copyright (C) %s Bobby Powers.\n\
-License GPLv3: GNU GPL version 2 or later <http://gnu.org/licenses/gpl.html>\n\
+License MIT: <http://www.opensource.org/licenses/mit-license.php>\n\
 This is free software: you are free to change and redistribute it.\n\
 There is NO WARRANTY, to the extent permitted by law.\n\n", YEAR);
 }

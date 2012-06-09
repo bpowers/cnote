@@ -68,4 +68,4 @@ requests/sec, with sqlite being the limiting factor.
 license
 -------
 
-cnote is offered under the GPLv3 license, see COPYING for details.
+cnote is offered under the MIT license, see COPYING for details.
