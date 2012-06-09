@@ -105,7 +105,7 @@ artist_list(struct req *self)
 {
 	return query_list(
 		self->db,
-		"SELECT DISTINCT artist FROM music ORDER BY artist");
+		"SELECT DISTINCT artist FROM music");
 }
 
 
@@ -126,7 +126,7 @@ album_list(struct req *self)
 {
 	return query_list(
 		self->db,
-		"SELECT DISTINCT album FROM music ORDER BY album");
+		"SELECT DISTINCT album FROM music");
 }
 
 

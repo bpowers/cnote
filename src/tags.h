@@ -13,7 +13,7 @@
 #include "dirwatch.h"
 
 
-void *tags_init(const char *db_path);
+void *tags_init(sqlite3 *db);
 
 bool is_valid_cb(struct dirwatch *self,
 		 const char *path,

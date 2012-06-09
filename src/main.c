@@ -67,6 +67,23 @@ static const struct option longopts[] =
 	{NULL, 0, NULL, 0}
 };
 
+static const char *CREATE_STMT =
+	"CREATE TABLE IF NOT EXISTS music ("
+	"       path     varchar(512) PRIMARY KEY NOT NULL,"
+	"       title    varchar(256) NOT NULL,"
+	"       artist   varchar(256) NOT NULL,"
+	"       album    varchar(256) NOT NULL,"
+	"       track    int,"
+	"       time     int,"
+	"       modified int64"
+	")";
+
+static const char *INDEX_ALBUMS_STMT =
+	"CREATE INDEX IF NOT EXISTS i_album ON music(album)";
+
+static const char *INDEX_ARTISTS_STMT =
+	"CREATE INDEX IF NOT EXISTS i_artist ON music(artist)";
+
 // forward declarations
 static void print_help(void);
 static void print_version(void);
@@ -99,6 +116,7 @@ main(int argc, char *const argv[])
 	uint16_t port;
 	wordexp_t w;
 	const char *addr, *dir, *db_path;
+	char *err_msg;
 	struct dirwatch *watch;
 
 	sqlite3 *db;
@@ -148,9 +166,24 @@ main(int argc, char *const argv[])
 		}
 	}
 
+	if (sqlite3_threadsafe() == 0)
+		exit_msg("sqlite3 not configured to be thread safe, exiting");
+
 	err = sqlite3_open(db_path, &db);
 	if (err != SQLITE_OK)
 		exit_msg("couldn't open db");
+
+	err = sqlite3_exec(db, CREATE_STMT, NULL, NULL, &err_msg);
+	if (err != SQLITE_OK)
+		exit_msg("sqlite3 create error: %d", err);
+
+	err = sqlite3_exec(db, INDEX_ARTISTS_STMT, NULL, NULL, &err_msg);
+	if (err != SQLITE_OK)
+		exit_msg("sqlite3 index artists error: %d", err);
+
+	err = sqlite3_exec(db, INDEX_ALBUMS_STMT, NULL, NULL, &err_msg);
+	if (err != SQLITE_OK)
+		exit_msg("sqlite3 index albums error: %d", err);
 
 	ev_base = event_base_new();
 	if (!ev_base)
@@ -178,7 +211,7 @@ main(int argc, char *const argv[])
 	watch->on_change = change_cb;
 	watch->cleanup = cleanup_cb;
 	watch->dir_name = dir;
-	watch->data = tags_init(db_path);
+	watch->data = tags_init(db);
 	if (watch->data == NULL) {
 		exit_msg("%s: couldn't connect to sqlite", program_name);
 	}

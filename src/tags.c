@@ -33,17 +33,6 @@
 
 #include <taglib/tag_c.h>
 
-static const char CREATE_STMT[] =
-	"CREATE TABLE IF NOT EXISTS music ("
-	"       path     varchar(512) PRIMARY KEY NOT NULL,"
-	"       title    varchar(256) NOT NULL,"
-	"       artist   varchar(256) NOT NULL,"
-	"       album    varchar(256) NOT NULL,"
-	"       track    int,"
-	"       time     int,"
-	"       modified int64"
-	")";
-
 static const char INSERT_QUERY[] =
 	"INSERT INTO music (title, artist, album, track, time, modified, path)"
 	"    VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -81,27 +70,14 @@ struct db_info {
 	} while (false)
 
 
-void *tags_init(const char *db_path)
+void *tags_init(sqlite3 *db)
 {
 	int err;
-	sqlite3 *db;
 	struct db_info *ret;
-	char *err_msg;
 
-	db = NULL;
 	ret = xcalloc(sizeof(struct db_info));
 
-	if (sqlite3_threadsafe() == 0)
-		exit_msg("sqlite3 not configured to be thread safe, exiting");
-
-	err = sqlite3_open(db_path, &db);
-	if (err != SQLITE_OK)
-		exit_msg("sqlite3 open error: %d", err);
 	ret->db = db;
-
-	err = sqlite3_exec(db, CREATE_STMT, NULL, NULL, &err_msg);
-	if (err != SQLITE_OK)
-		exit_msg("sqlite3 create error: %d", err);
 
 	PREPARE_QUERY(db, INSERT_QUERY, &ret->insert_query);
 	PREPARE_QUERY(db, UPDATE_QUERY, &ret->update_query);
