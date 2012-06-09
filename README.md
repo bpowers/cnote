@@ -1,28 +1,32 @@
 cnote - a simple, fast web frontend to your music library for Linux
 ===================================================================
 
-cnote is a way to easily share your personal music library over the
-network.  It provides a simple webpage to browse by artist or album
-and play songs using the html5 <audio> tag.  This means that support
-for mp3/aac/ogg audio is dependent on your browser.  I've personally
-had the most success with Chrome.
+cnote is a way to easily share my (or your!) personal music library
+over the world wide web.  It provides a dead-simple web application
+enabling anyone to browse your music by artist or album.  Songs are
+played using the 'html5' audio tag.  This means that support for
+mp3/aac/ogg audio is dependent on your browser.  Firefox doesn't come
+with the codecs for mp3 or aac, so unless your music library is all
+ogg, use Chrome
 
-I originally designed it so that I could access all the music I had on
-my desktop at home from my laptop at work, and it serves my needs
-quite well.
+I originally designed it so that I could access the music I had on my
+desktop at home from my laptop at work, and at this point it performs
+the task admirably.
 
 I also wrote it to show that writing web applications in C isn't 'that
-hard'.  I stand by that belief, but, frankly, I would probably just
-use Go for any new project like this.
+hard', and gives you something small and fast.  I stand by that
+belief, but frankly I would probably just use Go for any new project
+like this.
 
 
 architecture
 ------------
 
-cnote compiles to a small binary, which serves http on port 1969. All
-the binary does is respond to requests for /artist* and /album*.  The
-files in fe/ (frontend) can be served from nginx, along with your
-music.  See the config in examples/nginx.conf for how this works.
+cnote compiles to a small native binary, which serves http on port
+1969. All the binary does is respond to requests for /artist* and
+/album*.  The files in fe/ (frontend) can be served from nginx, along
+with your music.  See the config in examples/nginx.conf for how this
+works.
 
 There are several paths in src/cnote.c to configure to point cnote at
 your library.  When it starts up for the first time, it will crawl
@@ -38,13 +42,27 @@ abstracting this out would be possible, but I don't have plans to do
 that right now.
 
 
+highlights
+----------
+
+- A nifty wrapper around inotify, which provides recursive directory
+  watching.
+
+- Linux kernel-like linked lists, which use embedded pointers in
+  objects, rather than a separately allocated list node object.
+
+- Efficient custom JSON serialization.  A single allocation is
+  performed per call to jsonify(), even for complex nested data
+  structures (like lists of objects).
+
+
 status
 ------
 
 It works excellently for me with the nginx config in examples.  Memory
-usage after several hundred thousand requests is stable at 5 MiB.  It
-'only' does between 300 and 450 requests/sec.  This response time is
-completely dependent on sqlite right now.
+usage after several hundred thousand requests is stable at about 11
+MiB (and half of that is sqlite indexes).  It serves ~750
+requests/sec, with sqlite being the limiting factor.
 
 
 license
