@@ -90,18 +90,20 @@ var loadDetails = function(type, target) {
         dataType: 'json',
         success: function(data, status) {
 	    var html = '';
-	    if (!data)
+	    if (!data) {
 		html = 'no data in response.';
-	    else
-		data.map(function (song) {
+	    } else {
+		data.map(function(song) {
 		    if (!song)
 			return;
 		    escapedPath = escapePath(song.path);
 		    html += '<div class="row"><a href="/music/' +
-			escapedPath + '">▶</a> &nbsp; ' +
-			decodeURIComponent(song.album) +
-			' - ' + decodeURIComponent(song.title) + '</div>';
+			escapedPath + '">▶</a> &nbsp; ';
+		    if (song.album)
+			html += decodeURIComponent(song.album) + ' - ';
+		    html += decodeURIComponent(song.title) + '</div>';
 		});
+	    }
 	    $(options.content).html(html);
 	    $(options.content + ' .row a').bind('click', function(event) {
 		event.preventDefault();
