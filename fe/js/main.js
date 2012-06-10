@@ -77,7 +77,8 @@ $(function() {
 	model: Artist,
 	comparator: function(a) {
 	    return a.get('name').toLowerCase();
-	}
+	},
+	curr: null
     });
 
     var AlbumList = Backbone.Collection.extend({
@@ -85,7 +86,8 @@ $(function() {
 	model: Album,
 	comparator: function(a) {
 	    return a.get('name').toLowerCase();
-	}
+	},
+	curr: null
     });
 
     var TrackList = Backbone.Collection.extend({
@@ -95,10 +97,38 @@ $(function() {
     var Artists = new ArtistList;
     var Albums = new AlbumList;
     var Tracks = new TrackList;
+    var Collections = {
+	'artist': Artists,
+	'album': Albums
+    };
 
     var CategoryView = Backbone.View.extend({
 	tagName: 'div',
 	template: _.template($('#list-template').html()),
+
+	events: {
+	    'click a': 'loadTracks'
+	},
+
+	initialize: function() {
+	    this.model.bind('change', this.render, this);
+	},
+
+	curr: null,
+
+	loadTracks: function(e) {
+	    for (k in Collections) {
+		if (Collections[k].curr) {
+		    Collections[k].curr.set('selected', false);
+		    Collections[k].curr = null;
+		}
+	    }
+	    Collections[this.model.get('type')].curr = this.model;
+	    this.model.set('selected', true);
+	    var pieces = e.target.hash.substring(1).split('=');
+	    Tracks.url = 'api/' + pieces[0] + '/' + pieces[1];
+	    Tracks.fetch();
+	},
 
 	render: function() {
 	    this.$el.html(this.template(this.model.toJSON()));
@@ -177,6 +207,7 @@ $(function() {
 		this.prev = null;
 		this.curr = null;
 		this.el.src = '';
+		this.$el.hide();
 	    }
 	}
     });
@@ -186,11 +217,6 @@ $(function() {
     var AppView = Backbone.View.extend({
 
 	el: $('#content'),
-
-	events: {
-	    'click a.artist': 'loadTracks',
-	    'click a.album': 'loadTracks'
-	},
 
 	initialize: function() {
 	    Artists.bind('add', this.addOne, this);
@@ -222,11 +248,6 @@ $(function() {
 	addAllTracks: function() {
 	    $('#tracks').empty();
 	    Tracks.each(this.addTrack);
-	},
-	loadTracks: function(e) {
-	    var pieces = e.target.hash.substring(1).split('=');
-	    Tracks.url = 'api/' + pieces[0] + '/' + pieces[1];
-	    Tracks.fetch();
 	}
     });
 
