@@ -165,6 +165,8 @@ query_list(sqlite3 *db, const char *query_fmt)
 
 		// we don't care about the unsigned qualifier
 		val = (const char *)sqlite3_column_text(stmt, 0);
+		if (!strlen(val))
+			continue;
 		row = info_string_new(val);
 		list_add(&list, &row->list);
 	}

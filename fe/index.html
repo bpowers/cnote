@@ -1,38 +1,45 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
           "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
-<head>
-  <meta content="text/html" charset="UTF-8">
-  <title>cnote</title>
-  <script type="text/javascript" src="js/vendor/jquery.js"></script>
-  <script type="text/javascript" src="js/vendor/underscore.js"></script>
-  <script type="text/javascript" src="js/vendor/require.js"></script>
-  <script type="text/javascript" src="js/vendor/backbone.js"></script>
-  <script type="text/javascript" src="js/bp.utils.js"></script>
-  <script type="text/javascript" src="js/states.js"></script>
+    <head>
+	<meta charset="utf-8"></meta>
+        <title>cnote</title>
 
-  <link href="https://fonts.googleapis.com/css?family=Droid+Sans|Droid+Sans+Mono" rel="stylesheet" type="text/css" />
-  <link rel="stylesheet" href="css/reset-min.css" media="screen" type="text/css" /> 
-  <link rel="stylesheet" href="css/main.css" media="screen" type="text/css" /> 
-</head>
+        <link href="https://fonts.googleapis.com/css?family=Droid+Sans|Droid+Sans+Mono" rel="stylesheet" type="text/css" />
+        <link rel="stylesheet" href="css/reset-min.css" media="screen" type="text/css" />
+        <link rel="stylesheet" href="css/main.css" media="screen" type="text/css" />
+    </head>
 
-<body>
-  <div id="header"></div>
-  <div id="content">
-    <div id="content-left">
-      <div id="now-playing"></div>
-    </div>
-    <div id="content-right">
-      <div id="browse">
-	<div id="artist"></div>
-	<div id="album"></div>
-      </div>
-      <div id="details"></div>
-    </div>
-  </div>
-  <div id="footer">
-    cnote -
-    Bobby Powers
-  </div>
-</body>
+    <body>
+        <div id="header"></div>
+        <div id="content">
+            <div id="content-left">
+                <div id="now-playing"></div>
+            </div>
+            <div id="content-right">
+                <div id="browse">
+                    <div id="artist"></div>
+                    <div id="album"></div>
+                </div>
+                <div id="details"></div>
+            </div>
+        </div>
+        <div id="footer">
+            cnote -
+            Bobby Powers
+        </div>
+
+        <script type="text/javascript" src="js/vendor/jquery.js"></script>
+        <script type="text/javascript" src="js/vendor/underscore.js"></script>
+        <script type="text/javascript" src="js/vendor/backbone.js"></script>
+        <script type="text/javascript" src="js/bp.utils.js"></script>
+        <script type="text/javascript" src="js/main.js"></script>
+
+        <script type="text/template" id="list-template">
+            <div class="row">
+                <a href="#<%= type %>=<%= name %>"><%= decodeURIComponent(name) %></a>
+            </div>
+        </script>
+
+    </body>
 </html>
