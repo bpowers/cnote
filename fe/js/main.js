@@ -18,7 +18,8 @@ $(function() {
 	defaults: function() {
 	    return {
 		name: 'unknown',
-		type: 'artist'
+		type: 'artist',
+		selected: false
 	    }
 	},
     });
@@ -27,7 +28,8 @@ $(function() {
 	defaults: function() {
 	    return {
 		name: 'unknown',
-		type: 'album'
+		type: 'album',
+		selected: false
 	    }
 	},
     });
@@ -49,7 +51,8 @@ $(function() {
 		artist: 'unknown',
 		album: 'unknown',
 		track: 'unknown',
-		path: 'unknown'
+		path: 'unknown',
+		selected: false
 	    }
 	},
 
@@ -98,8 +101,6 @@ $(function() {
 	template: _.template($('#list-template').html()),
 
 	render: function() {
-	    // XXX: it feels super inefficient to convert the model to
-	    // json every time we want to render the template.
 	    this.$el.html(this.template(this.model.toJSON()));
 	    return this;
 	}
@@ -109,13 +110,78 @@ $(function() {
 	tagName: 'div',
 	template: _.template($('#track-template').html()),
 
+	events: {
+	    'click a.track': 'playSong'
+	},
+
+	initialize: function() {
+	    this.model.bind('change', this.render, this);
+	},
+
 	render: function() {
-	    // XXX: it feels super inefficient to convert the model to
-	    // json every time we want to render the template.
 	    this.$el.html(this.template(this.model.toJSON()));
 	    return this;
+	},
+
+	playSong: function(e) {
+	    e.preventDefault();
+	    nowPlaying.start(this.model);
 	}
     });
+
+    var NowPlayingView = Backbone.View.extend({
+	el: $('#now-playing'),
+
+	events: {
+	    'canplay': 'canPlay',
+	    'playing': 'playing',
+	    'ended': 'ended'
+	},
+
+	prev: null,
+	curr: null,
+
+	start: function(track) {
+	    if (this.curr) {
+		this.prev = this.curr;
+	    }
+	    this.curr = track;
+	    this.$el.show();
+	    this.el.src = '/music/' + track.get('path');
+	},
+	canPlay: function() {
+	    this.el.play();
+	},
+	playing: function() {
+	    if (this.prev) {
+		this.prev.set('selected', false);
+		this.prev = null;
+	    }
+	    this.curr.set('selected', true);
+	},
+	// current song is over.  see if there is another one to play.
+	ended: function() {
+	    var i;
+	    for (i in Tracks.models) {
+		if (this.curr === Tracks.models[i]) {
+		    i++;
+		    break;
+		}
+	    }
+	    if (i < Tracks.models.length) {
+		// found one. play it.
+		this.start(Tracks.models[i]);
+	    } else {
+		// end of the track list. clean up.
+		this.curr.set('selected', false);
+		this.prev = null;
+		this.curr = null;
+		this.el.src = '';
+	    }
+	}
+    });
+
+    var nowPlaying = new NowPlayingView;
 
     var AppView = Backbone.View.extend({
 
@@ -157,7 +223,6 @@ $(function() {
 	    $('#tracks').empty();
 	    Tracks.each(this.addTrack);
 	},
-
 	loadTracks: function(e) {
 	    var pieces = e.target.hash.substring(1).split('=');
 	    Tracks.url = 'api/' + pieces[0] + '/' + pieces[1];

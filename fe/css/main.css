@@ -17,17 +17,10 @@ a {
 .row {
     padding: 4px;
     text-shadow: rgba(0, 0, 0, 0.199219) 0px 2px 5px;
-}
-
-.row:nth-child(odd) {
     background: #3e3e3e;
 }
 
-.row:nth-child(even) {
-    background: #444;
-}
-
-#selected {
+.selected {
     background: #222;
 }
 
@@ -107,6 +100,6 @@ a {
     padding-bottom: 4px;
 }
 
-#nowplaying {
-
+#now-playing {
+    display: none;
 }

@@ -14,7 +14,7 @@
         <div id="header"></div>
         <div id="content">
             <div id="content-left">
-                <div id="now-playing"></div>
+                <audio id="now-playing" controls preload src=""></audio>
             </div>
             <div id="content-right">
                 <div id="browse">
@@ -36,13 +36,13 @@
         <script type="text/javascript" src="js/main.js"></script>
 
         <script type="text/template" id="list-template">
-            <div class="row <%= type %>">
+            <div class="<%= selected ? 'selected' : '' %> row <%= type %>">
                 <a class="<%= type %>" href="#<%= type %>=<%= encodeURIComponent(name) %>"><%= name %></a>
             </div>
         </script>
 
         <script type="text/template" id="track-template">
-            <div class="row track">
+            <div class="<%= selected ? 'selected' : '' %> row track">
                 <a class="track" href="music/<%= path %>">▶</a> &nbsp; <%= album %> - <%= title %>
             </div>
         </script>
