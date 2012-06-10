@@ -49,23 +49,18 @@
                 </div>
             </div>
         </div>
-        <div id="footer">
-            cnote -
-            Bobby Powers
-        </div>
 
         <script type="text/javascript" src="/js/vendor/jquery.js"></script>
         <script type="text/javascript" src="/js/vendor/underscore.js"></script>
         <script type="text/javascript" src="/js/vendor/backbone.js"></script>
         <script type="text/javascript">
-	    $(function() {
-	    window.setInterval(flipTheLights, 500);
-
+        $(function() {
+            window.setInterval(flipTheLights, 500);
 	    function flipTheLights() {
-	    $('#the-lights').toggleClass('are-off');
-	    }
-	    })
-	</script>
+                $('#the-lights').toggleClass('are-off');
+            }
+        });
+        </script>
 
     </body>
 </html>
