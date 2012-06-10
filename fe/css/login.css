@@ -1,3 +1,7 @@
+html {
+    overflow-y: hidden;
+}
+
 body {
     background-image:  url('/img/wall.png');
     background-repeat: repeat-y;
@@ -37,3 +41,4 @@ body {
 .are-off {
     background-color: rgba(0,0,0,.8);
 }
+
