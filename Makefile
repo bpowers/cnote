@@ -39,10 +39,8 @@ jsmindeps:
 	curl -o fe/js/vendor/underscore.js 'http://underscorejs.org/underscore-min.js'
 	curl -o fe/js/vendor/jquery.js     'http://code.jquery.com/jquery.min.js'
 
-vendor/jemalloc:
-	git submodule update --init
-
 vendor/jemalloc/Makefile:
+	git submodule update --init
 	cd vendor/jemalloc && ./autogen.sh
 
 .PHONY: build distclean clean check coverage
