@@ -21,7 +21,7 @@
                     <div id="artist"></div>
                     <div id="album"></div>
                 </div>
-                <div id="details"></div>
+                <div id="tracks"></div>
             </div>
         </div>
         <div id="footer">
@@ -36,8 +36,14 @@
         <script type="text/javascript" src="js/main.js"></script>
 
         <script type="text/template" id="list-template">
-            <div class="row">
-                <a href="#<%= type %>=<%= name %>"><%= decodeURIComponent(name) %></a>
+            <div class="row <%= type %>">
+                <a class="<%= type %>" href="#<%= type %>=<%= encodeURIComponent(name) %>"><%= name %></a>
+            </div>
+        </script>
+
+        <script type="text/template" id="track-template">
+            <div class="row track">
+                <a class="track" href="music/<%= path %>">▶</a> &nbsp; <%= album %> - <%= title %>
             </div>
         </script>
 

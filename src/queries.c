@@ -11,7 +11,7 @@
 
 #include <glib.h>
 
-#define ALLOWED_CHARS " \t\r\n'/[]()!,*&#:"
+#define ALLOWED_CHARS " \t\r\n'/{}[]()!,*&#:"
 
 static char *query_list(sqlite3 *conn, const char *query_fmt);
 static char *song_query(sqlite3 *conn, const char *query_fmt, const char *name);
