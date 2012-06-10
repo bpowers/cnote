@@ -1,5 +1,4 @@
 html {
-    background: #444;
 }
 
 body {
@@ -101,4 +100,107 @@ a {
 }
 
 #now-playing {
+}
+
+// start login stuff
+#login-logo {
+    display: block;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    margin-left: auto;
+    margin-right: auto;
+}
+#login-logo {
+    display: block;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#header-logo {
+    display: block;
+    margin: 8px;
+    float: left;
+}
+
+#welcome {
+    font-weight: bold;
+    float: left;
+    margin-left: 20px;
+    position: relative;
+    padding-top: 13px;
+}
+
+#logout {
+    float: right;
+    margin-right: 20px;
+    position: relative;
+    padding-top: 13px;
+}
+
+#logout a {
+    color: #444;
+    text-decoration: none;
+}
+
+#login {
+    display: block;
+    text-align: center;
+    font-size: 18px;
+    margin-top: 20px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#main {
+    background-color: white;
+    padding: 40px;
+    padding-top: 10px;
+    font-size: 24px;
+}
+
+#manager-header {
+    font-size: 24px;
+    background-color: #dddddd;
+    height: 78px;
+    overflow: hidden;
+    border-style: solid;
+    border-width: 10px 0 0 0;
+    border-color: #888;
+}
+
+#login-box {
+    font-family: "DejaVu Sans", "Helvetica", "Ariel", "sans-serif";
+    color: #444;
+
+    position: absolute;
+    background-color: #dddddd;
+    width: 400px;
+    height: 256px;
+    overflow: auto;
+    border-style: solid;
+    border-width: 10px;
+    border-color: #888;
+    border-radius: 25px;
+    left:50%;
+    top:50%;
+    margin:-150px 0 0 -200px;
+}
+
+.error {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 6px;
+}
+
+#title {
+    margin-top: 20px;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.breathing-room {
+    margin-top: 40px;
 }

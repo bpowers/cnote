@@ -1,0 +1,39 @@
+body {
+    background-image:  url('/img/wall.png');
+    background-repeat: repeat-y;
+}
+
+#the-floor {
+    height: 600px;
+    width: 100%;
+    bottom: 0;
+    position: absolute;
+    background-image:  url('/img/floor.png');
+    background-repeat: repeat-x;
+    background-position: bottom;
+}
+
+#the-cheat {
+    position: absolute;
+    bottom: 0;
+    width: 434px;
+    height: 635px;
+    background-image: url('/img/cheat.png');
+    background-repeat: none;
+}
+
+#cheat-img {
+    position: absolute;
+    bottom: 0;
+}
+
+#the-lights {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    min-height: 1200px;
+}
+
+.are-off {
+    background-color: rgba(0,0,0,.8);
+}
