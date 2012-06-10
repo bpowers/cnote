@@ -91,7 +91,21 @@ $(function() {
     });
 
     var TrackList = Backbone.Collection.extend({
-	model: Track
+	model: Track,
+
+	load: function(m) {
+	    // clear any existing highlighted artist or album
+	    for (k in Collections) {
+		if (Collections[k].curr) {
+		    Collections[k].curr.set('selected', false);
+		    Collections[k].curr = null;
+		}
+	    }
+	    Collections[m.get('type')].curr = m;
+	    m.set('selected', true);
+	    this.url = 'api/' + m.get('type') + '/' + encodeURIComponent(m.get('name'));
+	    this.fetch();
+	}
     });
 
     var Artists = new ArtistList;
@@ -107,7 +121,7 @@ $(function() {
 	template: _.template($('#list-template').html()),
 
 	events: {
-	    'click a': 'loadTracks'
+	    'click a': 'click'
 	},
 
 	initialize: function() {
@@ -116,18 +130,8 @@ $(function() {
 
 	curr: null,
 
-	loadTracks: function(e) {
-	    for (k in Collections) {
-		if (Collections[k].curr) {
-		    Collections[k].curr.set('selected', false);
-		    Collections[k].curr = null;
-		}
-	    }
-	    Collections[this.model.get('type')].curr = this.model;
-	    this.model.set('selected', true);
-	    var pieces = e.target.hash.substring(1).split('=');
-	    Tracks.url = 'api/' + pieces[0] + '/' + pieces[1];
-	    Tracks.fetch();
+	click: function(e) {
+	    Tracks.load(this.model);
 	},
 
 	render: function() {
@@ -141,7 +145,7 @@ $(function() {
 	template: _.template($('#track-template').html()),
 
 	events: {
-	    'click a.track': 'playSong'
+	    'click a.track': 'play'
 	},
 
 	initialize: function() {
@@ -153,7 +157,7 @@ $(function() {
 	    return this;
 	},
 
-	playSong: function(e) {
+	play: function(e) {
 	    e.preventDefault();
 	    nowPlaying.start(this.model);
 	}
@@ -170,6 +174,10 @@ $(function() {
 
 	prev: null,
 	curr: null,
+
+	initialize: function() {
+	    this.$el.hide();
+	},
 
 	start: function(track) {
 	    if (this.curr) {
@@ -206,7 +214,6 @@ $(function() {
 		this.curr.set('selected', false);
 		this.prev = null;
 		this.curr = null;
-		this.el.src = '';
 		this.$el.hide();
 	    }
 	}
@@ -218,7 +225,20 @@ $(function() {
 
 	el: $('#content'),
 
+	initial: {},
+
 	initialize: function() {
+	    // check to see if we are loading a URL with an
+	    // already-selected album or artist
+	    var hash = location.hash.substring(1);
+	    var parts;
+	    if (hash) {
+		parts = hash.split('=');
+		if (parts.length === 2 && parts[0] in {'artist':1, 'album':1}) {
+		    this.initial[parts[0]] = decodeURIComponent(parts[1]);
+		}
+	    }
+
 	    Artists.bind('add', this.addOne, this);
 	    Artists.bind('reset', this.addAllArtists, this);
 
@@ -233,7 +253,12 @@ $(function() {
 	},
 	addOne: function(a) {
 	    var view = new CategoryView({model: a});
-	    $('#' + a.get('type')).append(view.render().el);
+	    var type = a.get('type');
+	    $('#' + type).append(view.render().el);
+	    if (type in App.initial && App.initial[type] === a.get('name')) {
+		Tracks.load(a);
+		App.initial = {};
+	    }
 	},
 	addAllArtists: function() {
 	    Artists.each(this.addOne);
@@ -252,4 +277,8 @@ $(function() {
     });
 
     var App = new AppView;
+
+    if (navigator.userAgent.indexOf('Chrome') < 0) {
+	$('#footer').append('<span style="color: red; font-weight: bold;">(Firefox can\'t play aac or mp3 files.  Use Chrome)</span>');
+    }
 })
