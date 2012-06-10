@@ -42,7 +42,7 @@
 
         <script type="text/template" id="track-template">
             <div class="<%= selected ? 'selected' : '' %> row track">
-                <a class="track" href="music/<%= path %>">▶</a> &nbsp; <%= album ? album + ' - ' : '' %><%= title %>
+                <a class="track" href="music/<%= path %>">▶</a> &nbsp; <%= artist %> - <%= album ? '<i>'+album+'</i>'+' - ' : '' %><b><%= title %></b>
             </div>
         </script>
 
