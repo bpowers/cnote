@@ -199,14 +199,20 @@ $(function() {
 	},
 	// current song is over.  see if there is another one to play.
 	ended: function() {
+	    var found = false;
 	    var i;
 	    for (i in Tracks.models) {
 		if (this.curr === Tracks.models[i]) {
+		    found = true;
 		    i++;
 		    break;
 		}
 	    }
-	    if (i < Tracks.models.length) {
+	    if (!found) {
+		// didn't find it.  must have switched categories.
+		// start playing the first track.
+		this.start(Tracks.models[0]);
+	    } else if (i < Tracks.models.length) {
 		// found one. play it.
 		this.start(Tracks.models[i]);
 	    } else {
