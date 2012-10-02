@@ -83,10 +83,7 @@ exit_msg(const char *err_fmt, ...)
 {
 	va_list args;
 	char *err_msg;
-	int ret, err;
-
-	// record errno, because it could change in the call to vasprintf
-	err = errno;
+	int ret;
 
 	va_start(args, err_fmt);
 	ret = vasprintf(&err_msg, err_fmt, args);
@@ -337,5 +334,5 @@ sha256_hex_file(const char *path __unused__, size_t len __unused__)
 void
 free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
 {
-	g_free((gpointer)data);
+	g_free((gpointer)(intptr_t)data);
 }
