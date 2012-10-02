@@ -119,10 +119,11 @@ list_jsonify(const struct list_head *self, char *buf)
 		*buf++ = ',';
 	}
 
-	// remove the last trailing comma, replacing it with the closing
-	// bracket
-	// FIXME: what if we're an empty list?  this fails.
-	*--buf = ']';
+	// remove the last trailing comma, replacing it with the
+	// closing bracket, but only if we're not an empty list.
+	if (buf[-1] != '[')
+		--buf;
+	*buf = ']';
 
 	return len;
 }
