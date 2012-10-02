@@ -19,7 +19,7 @@ list_length(const struct list_head *self)
 	len = list_overhead;
 
 	list_for_each(curr, self) {
-		const struct info *data = container_of(curr, struct info, list);
+		const struct info *data = to_info(curr);
 		// the +1 is for the trailing comma
 		len += data->ops->length(data) + 1;
 	}
@@ -111,7 +111,7 @@ list_jsonify(const struct list_head *self, char *buf)
 	*buf++ = '[';
 
 	list_for_each(curr, self) {
-		struct info *data = container_of(curr, struct info, list);
+		struct info *data = to_info(curr);
 		// the +1 is for the trailing comma
 		len = data->ops->length(data);
 		data->ops->jsonify(data, buf);

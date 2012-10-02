@@ -31,7 +31,7 @@ list_add(struct list_head *curr, struct list_head *new)
 
 // from linux kernel
 #define container_of(ptr, type, member) ({			\
-	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+	/*const*/ typeof( ((type *)0)->member ) *__mptr = (ptr); \
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 struct info;
@@ -62,6 +62,7 @@ struct info {
 		struct song *song;
 	} data;
 };
+#define to_info(n) container_of(n, struct info, list)
 
 int list_length(const struct list_head *self);
 int list_jsonify(const struct list_head *self, char *buf);

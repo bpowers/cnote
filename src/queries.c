@@ -92,13 +92,11 @@ info_free(struct info *self)
 static void
 info_list_destroy(struct list_head *head)
 {
-	struct list_head *pos;
-	for (pos = head->next; pos != head;) {
-		struct info *curr;
-		curr = container_of(pos, struct info, list);
+	struct list_head *curr;
+	for (curr = head->next; curr != head;) {
 		// get next pointer now since we're freeing the memory
-		pos = pos->next;
-		info_free(curr);
+		curr = curr->next;
+		info_free(to_info(curr));
 	}
 }
 
