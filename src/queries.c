@@ -33,7 +33,7 @@ struct ops album_ops = {
 
 struct json_ops json_ops = {
 	.length = info_length,
-	.jsonify = jsonify,
+	.jsonify = info_jsonify,
 };
 
 static struct info *

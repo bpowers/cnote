@@ -11,7 +11,7 @@
 static const int list_overhead = 2;
 
 int
-list_length(struct list_head *self)
+list_length(const struct list_head *self)
 {
 	struct list_head *curr;
 	int len;
@@ -19,7 +19,7 @@ list_length(struct list_head *self)
 	len = list_overhead;
 
 	list_for_each(curr, self) {
-		struct info *data = container_of(curr, struct info, list);
+		const struct info *data = container_of(curr, struct info, list);
 		// the +1 is for the trailing comma
 		len += data->ops->length(data) + 1;
 	}
@@ -41,7 +41,7 @@ static const int str_overhead = 6;
 	(strlen(#field) + strlen(self->data.song->field) + str_overhead)
 
 int
-info_length(struct info *self)
+info_length(const struct info *self)
 {
 	int len;
 	// the added two are for matching '"'.
@@ -78,7 +78,7 @@ info_length(struct info *self)
 	*buf++ = ',';						\
 }
 int
-jsonify(struct info *self, char *buf)
+info_jsonify(const struct info *self, char *buf)
 {
 	int len;
 	if (self->type == STRING) {
@@ -103,7 +103,7 @@ jsonify(struct info *self, char *buf)
 }
 
 int
-list_jsonify(struct list_head *self, char *buf)
+list_jsonify(const struct list_head *self, char *buf)
 {
 	int len;
 	struct list_head *curr;
