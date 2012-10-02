@@ -24,6 +24,21 @@ list_add(struct list_head *curr, struct list_head *new)
 	curr->prev = new;
 }
 
+static inline void
+__list_del(struct list_head *prev, struct list_head *next)
+{
+	next->prev = prev;
+	prev->next = next;
+}
+
+static inline void
+list_del(struct list_head *curr)
+{
+	__list_del(curr->prev, curr->next);
+	curr->prev = NULL;
+	curr->next = NULL;
+}
+
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
 #define LIST_HEAD(name) \
@@ -41,8 +56,9 @@ struct json_ops {
 };
 
 enum INFO_TYPE {
+	INVALID,
 	STRING,
-	SONG
+	SONG,
 };
 
 struct song {
