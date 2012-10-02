@@ -74,6 +74,11 @@ info_string_new(const char *name)
 static void
 info_free(struct info *self)
 {
+	if (unlikely(self->type == INVALID)) {
+		log(ERROR, "invalid type");
+		return;
+	}
+
 	if (self->type == STRING) {
 		free(self->data.name);
 		free(self);
@@ -92,11 +97,13 @@ info_free(struct info *self)
 static void
 info_list_destroy(struct list_head *head)
 {
-	struct list_head *curr;
+	struct list_head *curr, *next;
 	for (curr = head->next; curr != head;) {
+		next = curr->next;
 		// get next pointer now since we're freeing the memory
-		curr = curr->next;
+		__list_del(curr->prev, curr->next);
 		info_free(to_info(curr));
+		curr = next;
 	}
 }
 
@@ -163,7 +170,7 @@ query_list(sqlite3 *db, const char *query_fmt)
 
 		// we don't care about the unsigned qualifier
 		val = (const char *)sqlite3_column_text(stmt, 0);
-		if (!strlen(val))
+		if (strlen(val) == 0)
 			continue;
 		row = info_string_new(val);
 		list_add(&list, &row->list);
