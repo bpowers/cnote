@@ -38,7 +38,6 @@ const char *program_name;
 
 static const struct option longopts[] =
 {
-	{"mount", required_argument, NULL, 'm'},
 	{"address", required_argument, NULL, 'a'},
 	{"port", required_argument, NULL, 'p'},
 	{"help", no_argument, NULL, 'h'},
