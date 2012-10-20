@@ -86,7 +86,6 @@ req_new(struct ops *ops, struct evhttp_request *req)
 	return ret;
 }
 
-
 //===--- this is where the magic starts... ------------------------------===//
 int
 main(int argc, char *const argv[])
@@ -204,8 +203,8 @@ main(int argc, char *const argv[])
 	return 0;
 }
 
-
-// called when we get a request like /albums or /album/Album Of The Year
+// handle_request is called when we get a request for a resource like
+// '/albums' or '/album/Album Of The Year'
 static void
 handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db)
 {
@@ -244,9 +243,8 @@ handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db)
 	evbuffer_free(buf);
 }
 
-
-// called when we don't have an artist or album API call - a fallthrough
-// error handler in a sense.
+// handle_unknown is a fallthrough error handler.  It is called when
+// we don't have an artist or album API call.
 static void
 handle_unknown(struct evhttp_request *req, void *unused __unused__)
 {
@@ -268,7 +266,9 @@ handle_unknown(struct evhttp_request *req, void *unused __unused__)
 #define ARTIST "/artist"
 #define ALBUM "/album"
 
-// called for each request
+// handle_req is the root request handler It is called for each
+// request before handle_request and decides if this is a valid client
+// request or not.
 static void
 handle_req(struct evhttp_request *req, sqlite3 *db)
 {
@@ -310,7 +310,6 @@ Options:\n");
 	printf("\
 Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 }
-
 
 static void
 print_version (void)
