@@ -31,7 +31,7 @@
 static uint16_t DEFAULT_PORT = 1969;
 static const char *DEFAULT_ADDR = "127.0.0.1";
 static const char *DEFAULT_DIR = "~/Music";
-static const char *DEFAULT_DB = "~/.cnote";
+static const char *DEFAULT_DB = "~/.cnote.db";
 
 // global var available to various functions that want to report status
 const char *program_name;
@@ -40,6 +40,7 @@ static const struct option longopts[] =
 {
 	{"address", required_argument, NULL, 'a'},
 	{"port", required_argument, NULL, 'p'},
+	{"dir", required_argument, NULL, 'd'},
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{NULL, 0, NULL, 0}
@@ -107,22 +108,9 @@ main(int argc, char *const argv[])
 	port = DEFAULT_PORT;
 	dir = DEFAULT_DIR;
 
-	// expand any '~' or vars in the music dir path
-	err = wordexp(dir, &w, 0);
-	if (err)
-		exit_perr("main: wordexp");
-	dir = strdup(w.we_wordv[0]);
-	wordfree(&w);
-
-	err = wordexp(DEFAULT_DB, &w, 0);
-	if (err)
-		exit_perr("main: wordexp");
-	db_path = strdup(w.we_wordv[0]);
-	wordfree(&w);
-
 	// process arguments from the command line
 	while ((optc = getopt_long(argc, argv,
-				   "a:p:hv", longopts, NULL)) != -1) {
+				   "a:p:d:hv", longopts, NULL)) != -1) {
 		switch (optc) {
 		// GNU standards have --help and --version exit immediately.
 		case 'v':
@@ -138,11 +126,27 @@ main(int argc, char *const argv[])
 			// FIXME: deal with errorz
 			port = atoi(optarg);
 			break;
+		case 'd':
+			dir = (const char *)optarg;
+			break;
 		default:
 			fprintf(stderr, "unknown option '%c'", optc);
 			exit(EXIT_FAILURE);
 		}
 	}
+
+	// expand any '~' or vars in the music dir path
+	err = wordexp(dir, &w, 0);
+	if (err)
+		exit_perr("main: wordexp");
+	dir = strdup(w.we_wordv[0]);
+	wordfree(&w);
+
+	err = wordexp(DEFAULT_DB, &w, 0);
+	if (err)
+		exit_perr("main: wordexp");
+	db_path = strdup(w.we_wordv[0]);
+	wordfree(&w);
 
 	if (sqlite3_threadsafe() == 0)
 		exit_msg("sqlite3 not configured to be thread safe, exiting");
@@ -299,6 +303,9 @@ Options:\n");
 	printf("\
   -p, --port=PORT     port to listen for connections on\n\
                       (default: 1984)\n");
+	printf("\
+  -d, --dir=DIR       directory where music lives\n\
+                      (default: ~/Music)\n");
 	printf("\n");
 	printf("\
 Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
