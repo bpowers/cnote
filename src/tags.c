@@ -153,11 +153,9 @@ is_modified_cb(struct dirwatch *self,
 	int64_t last_time;
 	const char *rel_path;;
 	bool ret;
-	sqlite3 *db;
 	struct stat stats;
 
 	dbi = self->data;
-	db = dbi->db;
 
 	// rel path is the path under '$dir_name/'
 	rel_path = &path[strlen(self->dir_name) + 1];

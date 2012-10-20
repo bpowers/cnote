@@ -11,20 +11,19 @@
 static const int list_overhead = 2;
 
 int
-list_length(struct list_head *self)
+list_length(const struct list_head *self)
 {
-	struct list_head *curr;
+	struct list_head *node;
 	int len;
 
 	len = list_overhead;
 
-	list_for_each(curr, self) {
-		struct info *data = container_of(curr, struct info, list);
+	list_for_each(node, self) {
+		const struct info *curr = to_info(node);
 		// the +1 is for the trailing comma
-		len += data->ops->length(data) + 1;
+		len += curr->ops->length(curr) + 1;
 	}
 
-	// FIXME: This will also behave weirdly in the 0-length case.
 	// remove the last trailing comma, as per the json.org spec
 	if (len > list_overhead)
 		len -= 1;
@@ -34,22 +33,22 @@ list_length(struct list_head *self)
 
 
 // opening and closing '{' and '}'
-static const int dict_overhead = 2;
+static const int obj_overhead = 2;
 // quotes around key and value, ':' and ','
-static const int str_overhead = 6;
+static const int entry_overhead = 6;
 #define member_len(self, field) \
-	(strlen(#field) + strlen(self->data.song->field) + str_overhead)
+	(strlen(#field) + strlen(self->data.song->field) + entry_overhead)
 
 int
-info_length(struct info *self)
+info_length(const struct info *self)
 {
 	int len;
 	// the added two are for matching '"'.
 	if (self->type == STRING)
 		return strlen(self->data.name) + 2;
 
-	// otherwise we're a dict, or object
-	len = dict_overhead;
+	// otherwise we're an object
+	len = obj_overhead;
 
 	// otherwise we're a song;
 	len += member_len(self, title);
@@ -78,7 +77,7 @@ info_length(struct info *self)
 	*buf++ = ',';						\
 }
 int
-jsonify(struct info *self, char *buf)
+info_jsonify(const struct info *self, char *buf)
 {
 	int len;
 	if (self->type == STRING) {
@@ -103,26 +102,27 @@ jsonify(struct info *self, char *buf)
 }
 
 int
-list_jsonify(struct list_head *self, char *buf)
+list_jsonify(const struct list_head *self, char *buf)
 {
-	int len;
-	struct list_head *curr;
+	struct list_head *node;
 
 	*buf++ = '[';
 
-	list_for_each(curr, self) {
-		struct info *data = container_of(curr, struct info, list);
+	list_for_each(node, self) {
+		int len;
+		struct info *curr = to_info(node);
 		// the +1 is for the trailing comma
-		len = data->ops->length(data);
-		data->ops->jsonify(data, buf);
+		len = curr->ops->length(curr);
+		curr->ops->jsonify(curr, buf);
 		buf += len;
 		*buf++ = ',';
 	}
 
-	// remove the last trailing comma, replacing it with the closing
-	// bracket
-	// FIXME: what if we're an empty list?  this fails.
-	*--buf = ']';
+	// remove the last trailing comma, replacing it with the
+	// closing bracket, but only if we're not an empty list.
+	if (buf[-1] != '[')
+		--buf;
+	*buf = ']';
 
-	return len;
+	return 0;
 }

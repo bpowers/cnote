@@ -24,25 +24,41 @@ list_add(struct list_head *curr, struct list_head *new)
 	curr->prev = new;
 }
 
+static inline void
+__list_del(struct list_head *prev, struct list_head *next)
+{
+	next->prev = prev;
+	prev->next = next;
+}
+
+static inline void
+list_del(struct list_head *curr)
+{
+	__list_del(curr->prev, curr->next);
+	curr->prev = NULL;
+	curr->next = NULL;
+}
+
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
 #define LIST_HEAD(name) \
 	struct list_head name = LIST_HEAD_INIT(name)
 
 // from linux kernel
-#define container_of(ptr, type, member) ({		     \
-	const typeof(((type *)0)->member) *__mptr = (ptr);   \
-	(type *)((char *)__mptr - offsetof(type,member) );})
+#define container_of(ptr, type, member) ({			\
+	/*const*/ typeof( ((type *)0)->member ) *__mptr = (ptr); \
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 struct info;
 struct json_ops {
-	int (*length)(struct info *self);
-	int (*jsonify)(struct info *self, char *buf);
+	int (*length)(const struct info *self);
+	int (*jsonify)(const struct info *self, char *buf);
 };
 
 enum INFO_TYPE {
+	INVALID,
 	STRING,
-	SONG
+	SONG,
 };
 
 struct song {
@@ -62,12 +78,11 @@ struct info {
 		struct song *song;
 	} data;
 };
+#define to_info(n) container_of(n, struct info, list)
 
-int list_length(struct list_head *self);
-int info_length(struct info *self);
-int jsonify(struct info *self, char *buf);
-
-int list_length(struct list_head *self);
-int list_jsonify(struct list_head *self, char *buf);
+int list_length(const struct list_head *self);
+int list_jsonify(const struct list_head *self, char *buf);
+int info_length(const struct info *self);
+int info_jsonify(const struct info *self, char *buf);
 
 #endif // _LIST_H_
