@@ -141,7 +141,7 @@ album_query(struct req *self, const char *album)
 	static const char *query_fmt =
 		"SELECT title, artist, album, track, path"
 		"    FROM music WHERE album = ?"
-		"    ORDER BY album, track, title";
+		"    ORDER BY album, track, artist, title";
 	return song_query(self->db, query_fmt, album);
 }
 
