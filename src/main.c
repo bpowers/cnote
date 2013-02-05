@@ -206,7 +206,7 @@ main(int argc, char *const argv[])
 // handle_request is called when we get a request for a resource like
 // '/albums' or '/album/Album Of The Year'
 static void
-handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db)
+handle_request(struct evhttp_request *req, struct ops *req_type, sqlite3 *db)
 {
 	struct req *request;
 	const char *name;
@@ -216,12 +216,19 @@ handle_request(struct evhttp_request *req, struct ops *ops, sqlite3 *db)
 	// we always return JSON
 	set_content_type_json(req);
 
-	request = req_new(ops, req);
+	// handle request is called with a given request type - either
+	// artist or album.  If we've gotten an invalid API request
+	// (like '/hack'), handle_request wouldn't have been called.,
+	// so we know we've got either a artist or album request here.
+	request = req_new(req_type, req);
 	request->db = db;
 
-	// the URI always starts with a /, so check for another one.
-	// if there IS another '/', it means we have a request for a
-	// particular artist.
+	// find the string that starts with the second '/', if there
+	// is a second backslash.  if there IS another '/', it means
+	// we have a request for a particular artist or album - like
+	// '/artist/Jay-Z' or '/album/The Blueprint'.  If there is
+	// only 1 slash, we're getting info about all artists or all
+	// albums.
 	name = strchr(&evhttp_request_get_uri(req)[1], '/');
 
 	// read as: if we don't have a request name or if the request
