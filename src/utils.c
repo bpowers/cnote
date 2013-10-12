@@ -23,7 +23,6 @@
 #include <libgen.h>
 
 #include <event2/event.h>
-#include <glib.h>
 
 // backlog arg for listen(2); max clients to keep in queue
 const int BACKLOG = 256;
@@ -334,5 +333,5 @@ sha256_hex_file(const char *path __unused__, size_t len __unused__)
 void
 free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
 {
-	g_free((gpointer)(intptr_t)data);
+	free((void*)(intptr_t)data);
 }
