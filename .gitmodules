@@ -1,3 +1,3 @@
 [submodule "vendor/jemalloc"]
 	path = vendor/jemalloc
-	url = git://canonware.com/jemalloc.git
+	url = git://github.com/jemalloc/jemalloc.git
