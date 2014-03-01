@@ -11,3 +11,6 @@ config.h
 test/*.test
 src/version.h
 perf.data*
+/package
+/site
+server.spec
