@@ -96,8 +96,8 @@ void cleanup_cb(struct dirwatch *self)
  * simply matching on extension is fine.
  */
 bool
-is_valid_cb(struct dirwatch *self __unused__, const char *path __unused__,
-	    const char *dir __unused__, const char *file)
+is_valid_cb(struct dirwatch *self __unused, const char *path __unused,
+	    const char *dir __unused, const char *file)
 {
 	char *ext;
 	ext = strrchr(file, '.');
@@ -146,8 +146,8 @@ get_last_mtime(sqlite3_stmt *modified_stmt, const char *path)
 bool
 is_modified_cb(struct dirwatch *self,
 	       const char *path,
-	       const char *dir __unused__,
-	       const char *file __unused__)
+	       const char *dir __unused,
+	       const char *file __unused)
 {
 	struct db_info *dbi;
 	int64_t last_time;
@@ -241,7 +241,7 @@ process_file(const char *full_path, const char *rel_path, struct db_info *dbi)
 
 void
 change_cb(struct dirwatch *self, const char *path,
-	  const char *dir __unused__, const char *file __unused__)
+	  const char *dir __unused, const char *file __unused)
 {
 	struct db_info *dbi;
 	const char *rel_path;
@@ -256,7 +256,7 @@ change_cb(struct dirwatch *self, const char *path,
 
 void
 delete_cb(struct dirwatch *self, const char *path,
-	  const char *dir __unused__, const char *file __unused__)
+	  const char *dir __unused, const char *file __unused)
 {
 	struct db_info *dbi;
 	int err;

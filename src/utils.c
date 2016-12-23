@@ -292,7 +292,7 @@ mkdirr(const char *path, mode_t mode)
 
 
 const char *
-sha256_hex_file(const char *path __unused__, size_t len __unused__)
+sha256_hex_file(const char *path __unused, size_t len __unused)
 {
 	return "0000000000000000000000000000000000000000";
 /*
@@ -331,7 +331,7 @@ sha256_hex_file(const char *path __unused__, size_t len __unused__)
 
 
 void
-free_cb(const void *data, size_t datalen __unused__, void *extra __unused__)
+free_cb(const void *data, size_t datalen __unused, void *extra __unused)
 {
 	free((void*)(intptr_t)data);
 }

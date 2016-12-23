@@ -151,4 +151,4 @@ distclean: clean
 	find . -name "*~" | xargs rm -f
 	rm -rf ./out
 
-.PHONY: clean distclean check leaks coverage heap doc
+.PHONY: clean distclean check leaks coverage heap doc $(PHONY_TARGETS)

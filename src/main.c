@@ -1,14 +1,6 @@
 // Copyright 2012 Bobby Powers. All rights reserved.
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE file.
-#include "config.h"
-
-#include "common.h"
-#include "queries.h"
-#include "dirwatch.h"
-#include "tags.h"
-#include "utils.h"
-
 #include <pthread.h>
 
 #include <stddef.h>
@@ -27,6 +19,15 @@
 #include <event2/buffer.h>
 
 #include <glib.h>
+
+#include "config.h"
+
+#include "common.h"
+#include "queries.h"
+#include "dirwatch.h"
+#include "tags.h"
+#include "utils.h"
+
 
 static uint16_t DEFAULT_PORT = 1969;
 static const char *DEFAULT_ADDR = "127.0.0.1";
@@ -253,7 +254,7 @@ handle_request(struct evhttp_request *req, struct ops *req_type, sqlite3 *db)
 // handle_unknown is a fallthrough error handler.  It is called when
 // we don't have an artist or album API call.
 static void
-handle_unknown(struct evhttp_request *req, void *unused __unused__)
+handle_unknown(struct evhttp_request *req, void *unused __unused)
 {
 	struct evbuffer *buf;
 

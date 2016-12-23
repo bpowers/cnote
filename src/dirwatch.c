@@ -84,8 +84,8 @@ dirwatch_free(struct dirwatch *self)
 
 // callback for use with nftw
 static int
-add_watch(const char *fpath, const struct stat *sb __unused__,
-	  int typeflag, struct FTW *ftwbuf __unused__)
+add_watch(const char *fpath, const struct stat *sb __unused,
+	  int typeflag, struct FTW *ftwbuf __unused)
 {
 	int watch;
 
@@ -104,8 +104,8 @@ add_watch(const char *fpath, const struct stat *sb __unused__,
 
 // callback for use with nftw
 static int
-count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
-	   int typeflag, struct FTW *ftwbuf __unused__)
+count_dirs(const char *fpath __unused, const struct stat *sb __unused,
+	   int typeflag, struct FTW *ftwbuf __unused)
 {
 	if ((typeflag & FTW_D))
 		++GLOBAL_count;
@@ -114,8 +114,8 @@ count_dirs(const char *fpath __unused__, const struct stat *sb __unused__,
 
 // callback for use with nftw
 static int
-on_startup(const char *fpath , const struct stat *sb __unused__,
-	   int typeflag, struct FTW *ftwbuf __unused__)
+on_startup(const char *fpath , const struct stat *sb __unused,
+	   int typeflag, struct FTW *ftwbuf __unused)
 {
 	struct dirwatch *self;
 	const char *file;

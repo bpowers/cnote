@@ -22,7 +22,7 @@
 #define __packed    __attribute__((packed))
 // prefetch a variable for reading into the L1 cache
 #define prefetch(x) __builtin_prefetch(x)
-#define __unused__    __attribute__((unused))
+#define __unused    __attribute__((unused))
 
 typedef void *(*pthread_routine)(void *);
 
